@@ -67,33 +67,49 @@ import { MenuItem } from 'primeng/api';
 export class SidebarComponent {
   protected readonly items: MenuItem[] = [
     {
-      label: 'Home',
-      icon: 'pi pi-home',
-      routerLink: '/'
-    },
-    {
-      label: 'Dashboard',
-      icon: 'pi pi-chart-line'
-    },
-    {
-      label: '01 What/Why?',
-      icon: 'pi pi-book',
-      routerLink: '/lessons/what-why',
+      label: 'Main',
       items: [
         {
-          label: 'Thread',
-          icon: 'pi pi-sitemap',
-          routerLink: '/lessons/what-why/thread'
+          label: 'Home',
+          icon: 'pi pi-home',
+          routerLink: '/'
+        },
+        {
+          label: 'Dashboard',
+          icon: 'pi pi-chart-line',
+          routerLink: '/'
+        },
+        {
+          label: 'Kotlin Editor',
+          icon: 'pi pi-code',
+          routerLink: '/kotlin-editor'
         }
       ]
     },
     {
-      label: 'Lesson 2',
-      icon: 'pi pi-book'
-    },
-    {
-      label: 'Lesson 3',
-      icon: 'pi pi-book'
+      label: 'Lessons',
+      items: [
+        {
+          label: '01 What/Why?',
+          icon: 'pi pi-book',
+          routerLink: '/lessons/what-why'
+        },
+        {
+          label: 'Thread',
+          icon: 'pi pi-sitemap',
+          routerLink: '/lessons/what-why/thread'
+        },
+        {
+          label: 'Lesson 2',
+          icon: 'pi pi-book',
+          routerLink: '/'
+        },
+        {
+          label: 'Lesson 3',
+          icon: 'pi pi-book',
+          routerLink: '/'
+        }
+      ]
     }
   ];
 }

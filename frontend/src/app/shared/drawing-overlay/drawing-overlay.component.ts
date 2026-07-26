@@ -263,6 +263,15 @@ export class DrawingOverlayComponent implements AfterViewInit {
     }
   }
 
+  @HostListener('window:keydown.escape')
+  protected hideDrawingTools(): void {
+    this.isDrawingEnabled = false;
+    this.isPanelOpen = false;
+    this.startPoint = null;
+    this.lastPoint = null;
+    this.shapeSnapshot = null;
+  }
+
   protected toggleDrawing(): void {
     this.isDrawingEnabled = !this.isDrawingEnabled;
     this.isPanelOpen = this.isDrawingEnabled;
