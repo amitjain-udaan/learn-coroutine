@@ -3,11 +3,12 @@ import { RouterOutlet } from '@angular/router';
 
 import { SidebarComponent } from './sidebar.component';
 import { TopbarComponent } from './topbar.component';
+import { DrawingOverlayComponent } from '../shared/drawing-overlay/drawing-overlay.component';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [RouterOutlet, SidebarComponent, TopbarComponent],
+  imports: [RouterOutlet, SidebarComponent, TopbarComponent, DrawingOverlayComponent],
   template: `
     <div class="shell">
       <app-sidebar />
@@ -18,6 +19,7 @@ import { TopbarComponent } from './topbar.component';
         </main>
       </div>
     </div>
+    <app-drawing-overlay />
   `,
   styles: [`
     .shell {
