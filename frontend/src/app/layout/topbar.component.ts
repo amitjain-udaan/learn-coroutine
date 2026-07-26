@@ -12,7 +12,7 @@ import { ToolbarModule } from 'primeng/toolbar';
       <ng-template pTemplate="start">
         <div>
           <h1>Dashboard</h1>
-          <span>Track Kotlin coroutine practice from one place.</span>
+          <span>Kotlin coroutine lessons.</span>
         </div>
       </ng-template>
 

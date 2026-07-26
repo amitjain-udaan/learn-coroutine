@@ -46,6 +46,7 @@
 ## Component Rules
 
 - Build reusable components before adding page-specific duplication.
+- Put reusable frontend components in `frontend/src/app/shared/`.
 - Keep component APIs small and explicit with `@Input()` and `@Output()` where needed.
 - Keep business logic out of templates when it belongs in TypeScript.
 - Keep CSS scoped to the component unless a style is truly global.

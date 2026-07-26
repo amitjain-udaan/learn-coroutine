@@ -1,13 +1,12 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ButtonModule } from 'primeng/button';
 import { MenuModule } from 'primeng/menu';
 import { MenuItem } from 'primeng/api';
 
 @Component({
   selector: 'app-sidebar',
   standalone: true,
-  imports: [ButtonModule, MenuModule, RouterLink],
+  imports: [MenuModule, RouterLink],
   template: `
     <aside class="sidebar">
       <a class="brand" routerLink="/">
@@ -16,15 +15,6 @@ import { MenuItem } from 'primeng/api';
       </a>
 
       <p-menu [model]="items" styleClass="nav-menu" />
-
-      <button
-        pButton
-        type="button"
-        icon="pi pi-plus"
-        label="New Lesson"
-        severity="contrast"
-        class="new-button">
-      </button>
     </aside>
   `,
   styles: [`
@@ -59,12 +49,6 @@ import { MenuItem } from 'primeng/api';
       font-size: .875rem;
     }
 
-    .new-button {
-      width: 100%;
-      justify-content: center;
-      margin-top: auto;
-    }
-
     :host ::ng-deep .nav-menu {
       width: 100%;
       border: 0;
@@ -83,17 +67,33 @@ import { MenuItem } from 'primeng/api';
 export class SidebarComponent {
   protected readonly items: MenuItem[] = [
     {
-      label: 'Dashboard',
+      label: 'Home',
       icon: 'pi pi-home',
       routerLink: '/'
     },
     {
-      label: 'Lessons',
+      label: 'Dashboard',
+      icon: 'pi pi-chart-line'
+    },
+    {
+      label: '01 What/Why?',
+      icon: 'pi pi-book',
+      routerLink: '/lessons/what-why',
+      items: [
+        {
+          label: 'Thread',
+          icon: 'pi pi-sitemap',
+          routerLink: '/lessons/what-why/thread'
+        }
+      ]
+    },
+    {
+      label: 'Lesson 2',
       icon: 'pi pi-book'
     },
     {
-      label: 'Exercises',
-      icon: 'pi pi-code'
+      label: 'Lesson 3',
+      icon: 'pi pi-book'
     }
   ];
 }

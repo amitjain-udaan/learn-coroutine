@@ -60,17 +60,17 @@ type Lesson = {
 export class HomePageComponent {
   protected readonly lessons: Lesson[] = [
     {
-      title: 'Coroutine Basics',
+      title: '01 What/Why?',
       status: 'Ready',
       detail: 'Launch, suspend, and structured concurrency fundamentals.'
     },
     {
-      title: 'Dispatchers',
+      title: 'Lesson 2',
       status: 'In progress',
       detail: 'Practice moving work across CPU and IO execution contexts.'
     },
     {
-      title: 'Flows',
+      title: 'Lesson 3',
       status: 'Queued',
       detail: 'Explore cold streams, operators, collection, and cancellation.'
     }
