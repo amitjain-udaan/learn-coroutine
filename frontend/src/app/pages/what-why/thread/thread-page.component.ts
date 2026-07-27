@@ -3,12 +3,13 @@ import { CardModule } from 'primeng/card';
 import { DialogModule } from 'primeng/dialog';
 import { TagModule } from 'primeng/tag';
 
+import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kotlin-playground.component';
 import { ThreadDetailComponent } from '../../../shared/thread-detail/thread-detail.component';
 
 @Component({
   selector: 'app-thread-page',
   standalone: true,
-  imports: [CardModule, DialogModule, TagModule, ThreadDetailComponent],
+  imports: [CardModule, DialogModule, TagModule, KotlinPlaygroundComponent, ThreadDetailComponent],
   template: `
     <section class="thread-page">
       <header class="page-header">
@@ -123,6 +124,137 @@ import { ThreadDetailComponent } from '../../../shared/thread-detail/thread-deta
       </div>
 
       <p-card>
+        <h3>How Jetty manages server threads</h3>
+        <p>
+          Think of Jetty as a traffic controller. A request is accepted, watched for I/O, converted into
+          work, and then a pooled worker thread runs your application code.
+        </p>
+
+        <div class="jetty-diagram" aria-label="Jetty thread management diagram">
+          <div class="jetty-flowchart">
+            <div class="flow-step client-step">
+              <span class="step-number">1</span>
+              <span class="node-label">Browser / client</span>
+              <strong>Sends HTTP request</strong>
+              <small>Example: GET /lessons</small>
+            </div>
+
+            <span class="flow-arrow pi pi-arrow-right" aria-hidden="true"></span>
+
+            <div class="flow-step acceptor-step">
+              <span class="step-number">2</span>
+              <span class="node-label">Acceptor thread</span>
+              <strong>Accepts connection</strong>
+              <small>Creates/registers the socket</small>
+            </div>
+
+            <span class="flow-arrow pi pi-arrow-right" aria-hidden="true"></span>
+
+            <div class="flow-step selector-step">
+              <span class="step-number">3</span>
+              <span class="node-label">Selector thread</span>
+              <strong>Waits for I/O</strong>
+              <small>Socket is ready to read/write</small>
+            </div>
+
+            <span class="flow-arrow pi pi-arrow-down" aria-hidden="true"></span>
+
+            <div class="pool-step">
+              <div class="pool-title">
+                <span class="node-label">QueuedThreadPool</span>
+                <strong>Jetty's shared thread pool</strong>
+                <small>Threads are reused instead of creating one permanent thread per request</small>
+              </div>
+
+              <div class="pool-flow">
+                <div class="mini-step">
+                  <span class="node-label">4</span>
+                  <strong>Task waits</strong>
+                  <small>Request work enters the queue</small>
+                </div>
+
+                <span class="mini-arrow pi pi-arrow-right" aria-hidden="true"></span>
+
+                <div class="mini-step">
+                  <span class="node-label">5</span>
+                  <strong>Worker picked</strong>
+                  <small>A free pooled thread takes the task</small>
+                </div>
+
+                <span class="mini-arrow pi pi-arrow-right" aria-hidden="true"></span>
+
+                <div class="mini-step">
+                  <span class="node-label">6</span>
+                  <strong>App code runs</strong>
+                  <small>Handler, servlet, API, or WebSocket code</small>
+                </div>
+              </div>
+            </div>
+
+            <span class="flow-arrow pi pi-arrow-down" aria-hidden="true"></span>
+
+            <div class="flow-step response-step">
+              <span class="step-number">7</span>
+              <span class="node-label">Response</span>
+              <strong>Result is written back</strong>
+              <small>The worker becomes available for another task</small>
+            </div>
+          </div>
+
+          <div class="jetty-note">
+            <strong>Remember:</strong>
+            <span>Acceptors and selectors are Jetty's network threads. Worker threads are where your request code runs.</span>
+          </div>
+
+          <div class="jetty-models" aria-label="Blocking request model compared with async request model">
+            <div class="jetty-model blocking-model">
+              <div class="model-header">
+                <span class="node-label">Model A</span>
+                <strong>Jetty is async, but your request blocks</strong>
+              </div>
+
+              <div class="model-flow">
+                <span>Worker starts request</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span>App calls blocking I/O</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span class="blocked-step">Worker waits and cannot serve another request</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span>I/O finishes, response completes</span>
+              </div>
+
+              <p>
+                Jetty can accept and watch many connections asynchronously, but it cannot magically free a
+                worker thread that is inside blocking application code.
+              </p>
+            </div>
+
+            <div class="jetty-model async-model">
+              <div class="model-header">
+                <span class="node-label">Model B</span>
+                <strong>Request uses async I/O and frees the worker</strong>
+              </div>
+
+              <div class="model-flow">
+                <span>Worker starts request</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span>App starts async I/O</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span class="free-step">Request suspends, worker returns to pool</span>
+                <i class="pi pi-arrow-right" aria-hidden="true"></i>
+                <span>I/O callback resumes and completes response</span>
+              </div>
+
+              <p>
+                This is the scalable path: the request is still alive, but a platform thread does not sit
+                idle while the external I/O is pending.
+              </p>
+            </div>
+          </div>
+        </div>
+      </p-card>
+
+      <p-card>
         <h3>Why it matters for coroutines</h3>
         <p>
           Coroutines do not replace the OS process. They are lightweight work units that run on threads.
@@ -135,6 +267,59 @@ Thread: program counter + registers + stack
 
 Thread.sleep(1000) blocks the thread
 delay(1000) suspends the coroutine</code></pre>
+      </p-card>
+
+      <p-card>
+        <h3>Jetty threads, coroutines, and context switching</h3>
+        <p>
+          A normal Jetty worker is a Java platform thread backed by an operating-system thread. A coroutine
+          is different: it is lightweight work scheduled onto an existing thread, and suspending it does not
+          automatically require an OS context switch.
+        </p>
+
+        <img
+          class="thread-cost-image"
+          src="assets/jetty-os-thread-context-switch.svg"
+          alt="Two vertical diagrams comparing Jetty workers mapped to Java and OS threads with coroutines scheduled on Jetty workers"
+        />
+
+        <div class="cost-grid">
+          <div>
+            <strong>OS context switch</strong>
+            <p>
+              The CPU stops running one OS thread, saves its state, restores another thread's state,
+              and continues. This happens in the kernel and is often measured in microseconds, with extra
+              cost when CPU caches are disturbed.
+            </p>
+          </div>
+
+          <div>
+            <strong>Coroutine switch</strong>
+            <p>
+              A coroutine suspension stores continuation state in user space. It is much cheaper than an OS
+              context switch, but it still has overhead, so millions of tiny suspensions are not free.
+            </p>
+          </div>
+
+          <div>
+            <strong>Blocking still hurts</strong>
+            <p>
+              If coroutine code calls blocking I/O on a Jetty worker, that platform thread and OS thread are
+              still occupied. Coroutines help only when the waiting operation can suspend or is moved away
+              from request workers.
+            </p>
+          </div>
+        </div>
+      </p-card>
+
+      <p-card>
+        <h3>Edit a Kotlin thread example</h3>
+        <p>
+          Run this small example and change the sleeps or printed labels. Notice that both workers run on
+          real JVM threads, and the main thread waits for them with <code>join()</code>.
+        </p>
+
+        <app-kotlin-playground [startingCode]="threadExampleCode" />
       </p-card>
     </section>
   `,
@@ -326,6 +511,212 @@ delay(1000) suspends the coroutine</code></pre>
       gap: 1rem;
     }
 
+    .jetty-diagram {
+      display: grid;
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .jetty-flowchart {
+      display: grid;
+      grid-template-columns: minmax(10rem, 1fr) 2rem minmax(10rem, 1fr) 2rem minmax(10rem, 1fr);
+      gap: .75rem;
+      align-items: center;
+    }
+
+    .flow-step,
+    .pool-step {
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #ffffff;
+    }
+
+    .flow-step {
+      min-height: 9rem;
+      padding: 1rem;
+      display: grid;
+      align-content: start;
+      gap: .5rem;
+      position: relative;
+    }
+
+    .step-number {
+      width: 1.75rem;
+      height: 1.75rem;
+      border-radius: 999px;
+      background: #111827;
+      color: #ffffff;
+      font-size: .8125rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+    }
+
+    .client-step {
+      border-top: .25rem solid #2563eb;
+    }
+
+    .acceptor-step {
+      border-top: .25rem solid #7c3aed;
+    }
+
+    .selector-step {
+      border-top: .25rem solid #0891b2;
+    }
+
+    .response-step {
+      grid-column: 2 / 5;
+      border-top: .25rem solid #059669;
+    }
+
+    .flow-arrow,
+    .mini-arrow {
+      color: #6b7280;
+      font-size: 1.25rem;
+      justify-self: center;
+    }
+
+    .pool-step {
+      grid-column: 1 / -1;
+      padding: 1rem;
+      border-top: .25rem solid #111827;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .pool-title {
+      display: grid;
+      gap: .35rem;
+    }
+
+    .pool-flow {
+      display: grid;
+      grid-template-columns: minmax(10rem, 1fr) 2rem minmax(10rem, 1fr) 2rem minmax(10rem, 1fr);
+      gap: .75rem;
+      align-items: center;
+    }
+
+    .mini-step {
+      min-width: 0;
+      padding: .75rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #f9fafb;
+      display: grid;
+      gap: .5rem;
+      align-content: start;
+      min-height: 7rem;
+    }
+
+    .jetty-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .35rem;
+      padding: .85rem 1rem;
+      border: 1px solid #bae6fd;
+      border-radius: .5rem;
+      background: #f0f9ff;
+      color: #075985;
+      line-height: 1.5;
+    }
+
+    .jetty-models {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .jetty-model {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #ffffff;
+      display: grid;
+      gap: 1rem;
+      align-content: start;
+    }
+
+    .blocking-model {
+      border-top: .25rem solid #dc2626;
+    }
+
+    .async-model {
+      border-top: .25rem solid #059669;
+    }
+
+    .model-header {
+      display: grid;
+      gap: .35rem;
+    }
+
+    .model-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+      gap: .5rem;
+      align-items: center;
+    }
+
+    .model-flow span {
+      min-height: 4.5rem;
+      padding: .65rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #f9fafb;
+      color: #374151;
+      font-size: .8125rem;
+      font-weight: 700;
+      line-height: 1.35;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
+    .model-flow i {
+      color: #6b7280;
+      font-size: 1rem;
+    }
+
+    .model-flow .blocked-step {
+      border-color: #fecaca;
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .model-flow .free-step {
+      border-color: #bbf7d0;
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .thread-cost-image {
+      display: block;
+      width: 100%;
+      height: auto;
+      margin-top: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #f8fafc;
+    }
+
+    .cost-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .cost-grid div {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #ffffff;
+      display: grid;
+      gap: .5rem;
+      align-content: start;
+    }
+
     pre {
       overflow-x: auto;
       margin: 1rem 0 0;
@@ -354,7 +745,23 @@ delay(1000) suspends the coroutine</code></pre>
         grid-template-columns: 1fr;
       }
 
-      .arrow {
+      .jetty-flowchart,
+      .pool-flow,
+      .jetty-models,
+      .model-flow,
+      .cost-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pool-step,
+      .response-step {
+        grid-column: auto;
+      }
+
+      .arrow,
+      .flow-arrow,
+      .mini-arrow,
+      .model-flow i {
         transform: rotate(90deg);
         justify-self: center;
       }
@@ -363,6 +770,39 @@ delay(1000) suspends the coroutine</code></pre>
 })
 export class ThreadPageComponent {
   protected isThreadDetailOpen = false;
+
+  protected readonly threadExampleCode = `import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlin.concurrent.thread
+
+val timeFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+
+fun log(message: String) {
+    println("\${LocalTime.now().format(timeFormat)} | \$message")
+}
+
+fun main() {
+    log("Main starts on \${Thread.currentThread().name}")
+
+    val workerA = thread(name = "worker-a") {
+        repeat(3) { step ->
+            log("Worker A step \${step + 1} on \${Thread.currentThread().name}")
+            Thread.sleep(300)
+        }
+    }
+
+    val workerB = thread(name = "worker-b") {
+        repeat(3) { step ->
+            log("Worker B step \${step + 1} on \${Thread.currentThread().name}")
+            Thread.sleep(300)
+        }
+    }
+
+    workerA.join()
+    workerB.join()
+
+    log("Main finishes after both threads complete")
+}`;
 
   protected openThreadDetail(): void {
     this.isThreadDetailOpen = true;
