@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { HomePageComponent } from './pages/home/home-page.component';
 import { KotlinEditorPageComponent } from './pages/kotlin-editor/kotlin-editor-page.component';
+import { ConcurrentVsSequentialPageComponent } from './pages/what-why/concurrent-vs-sequential/concurrent-vs-sequential-page.component';
 import { ThreadPageComponent } from './pages/what-why/thread/thread-page.component';
 import { WhatWhyPageComponent } from './pages/what-why/what-why-page.component';
 
@@ -20,6 +21,11 @@ export const routes: Routes = [
     path: 'lessons/what-why/thread',
     component: ThreadPageComponent,
     title: 'Thread'
+  },
+  {
+    path: 'lessons/what-why/concurrent-vs-sequential',
+    component: ConcurrentVsSequentialPageComponent,
+    title: 'Concurrent vs Sequential'
   },
   {
     path: 'kotlin-editor',

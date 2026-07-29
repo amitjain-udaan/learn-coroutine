@@ -1,185 +1,193 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1500" viewBox="0 0 1200 1500" role="img" aria-labelledby="title desc">
-  <title id="title">Jetty threads, coroutines, OS threads, and context switching</title>
-  <desc id="desc">Two vertical diagrams. The first shows Jetty worker threads as Java platform threads backed one-to-one by OS threads. The second shows Kotlin coroutines as lightweight tasks scheduled onto Jetty workers. It marks where coroutine suspension happens and where expensive OS context switching happens.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="2100" viewBox="0 0 1400 2100" role="img" aria-labelledby="title desc">
+  <title id="title">Threads, Jetty, JVM, and Kotlin coroutines mental model</title>
+  <desc id="desc">A set of small diagrams explaining the hierarchy from coroutine to CPU, independent Jetty and coroutine thread pools, request suspension and resumption, different schedulers, and where context switching happens.</desc>
   <defs>
     <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-      <path d="M 0 0 L 10 5 L 0 10 z" fill="#475569"/>
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/>
     </marker>
-    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="7" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.10"/>
-    </filter>
     <style>
       .bg { fill: #f8fafc; }
-      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; filter: url(#shadow); }
-      .jetty { fill: #eff6ff; stroke: #93c5fd; }
-      .java { fill: #ecfdf5; stroke: #86efac; }
-      .os { fill: #fff7ed; stroke: #fdba74; }
-      .cpu { fill: #fef2f2; stroke: #fca5a5; }
+      .card { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; }
+      .app { fill: #ecfdf5; stroke: #86efac; }
       .coroutine { fill: #f5f3ff; stroke: #c4b5fd; }
+      .dispatcher { fill: #fdf4ff; stroke: #f0abfc; }
+      .jetty { fill: #eff6ff; stroke: #93c5fd; }
+      .thread { fill: #fff7ed; stroke: #fdba74; }
+      .cpu { fill: #fef2f2; stroke: #fca5a5; }
       .note { fill: #f0f9ff; stroke: #bae6fd; }
-      .warn { fill: #fff7ed; stroke: #fdba74; }
+      .good { fill: #f0fdf4; stroke: #86efac; }
+      .warn { fill: #fffbeb; stroke: #fcd34d; }
       .bad { fill: #fef2f2; stroke: #fca5a5; }
-      .good { fill: #ecfdf5; stroke: #86efac; }
       .text { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #111827; }
-      .title { font-size: 31px; font-weight: 800; }
+      .title { font-size: 34px; font-weight: 850; }
       .subtitle { font-size: 15px; fill: #475569; }
-      .section-title { font-size: 22px; font-weight: 800; }
-      .label { font-size: 17px; font-weight: 800; }
+      .h2 { font-size: 23px; font-weight: 850; }
+      .h3 { font-size: 16px; font-weight: 850; }
       .small { font-size: 13px; fill: #475569; }
       .tiny { font-size: 12px; fill: #475569; }
-      .box-title { font-size: 15px; font-weight: 800; }
-      .box-small { font-size: 12px; fill: #374151; }
-      .arrow { stroke: #475569; stroke-width: 2.2; fill: none; marker-end: url(#arrow); }
+      .arrow { stroke: #334155; stroke-width: 2; fill: none; marker-end: url(#arrow); }
       .dashed { stroke-dasharray: 7 6; }
-      .badge { fill: #111827; }
-      .badge-text { fill: #ffffff; font-size: 12px; font-weight: 800; }
+      .line { stroke: #cbd5e1; stroke-width: 1.5; fill: none; }
     </style>
   </defs>
 
-  <rect class="bg" width="1200" height="1500"/>
+  <rect class="bg" width="1400" height="2100"/>
+  <text class="text title" x="52" y="58">Threads, Jetty, JVM, and Kotlin coroutines</text>
+  <text class="text subtitle" x="52" y="86">Mental model based on the supplied findings: coroutines are tasks, dispatchers schedule them, Java threads map to OS threads, and CPUs execute OS threads.</text>
 
-  <text class="text title" x="48" y="54">Jetty, Java threads, coroutines, and context switching</text>
-  <text class="text subtitle" x="48" y="82">Two different kinds of switching matter: cheap coroutine suspension in the JVM, and expensive OS thread context switching in the kernel.</text>
+  <rect class="card" x="52" y="126" width="620" height="520" rx="18"/>
+  <text class="text h2" x="88" y="168">1. Execution hierarchy</text>
+  <text class="text subtitle" x="88" y="194">A coroutine cannot execute by itself. It needs a thread.</text>
 
-  <rect class="panel" x="48" y="116" width="1104" height="592" rx="18"/>
-  <text class="text section-title" x="80" y="158">Diagram 1: Jetty worker thread -> Java platform thread -> OS thread</text>
-  <text class="text subtitle" x="80" y="184">This is the normal platform-thread path. Jetty reuses workers, but each running worker is still backed by an OS thread.</text>
+  <rect class="card app" x="210" y="232" width="300" height="48" rx="10"/>
+  <text class="text h3" x="300" y="262">Application code</text>
+  <path class="arrow" d="M 360 280 L 360 324"/>
 
-  <rect class="panel jetty" x="96" y="230" width="220" height="286" rx="14"/>
-  <text class="text label" x="122" y="266">Jetty</text>
-  <text class="text small" x="122" y="290">QueuedThreadPool</text>
-  <rect class="panel" x="122" y="324" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="144" y="352">Worker A</text>
-  <text class="text box-small" x="144" y="372">Runs request code</text>
-  <rect class="panel" x="122" y="418" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="144" y="446">Worker B</text>
-  <text class="text box-small" x="144" y="466">Runs another task</text>
+  <rect class="card coroutine" x="210" y="324" width="300" height="48" rx="10"/>
+  <text class="text h3" x="302" y="354">Coroutine task</text>
+  <path class="arrow" d="M 360 372 L 360 416"/>
 
-  <rect class="panel java" x="384" y="230" width="220" height="286" rx="14"/>
-  <text class="text label" x="410" y="266">Java JVM</text>
-  <text class="text small" x="410" y="290">Platform threads</text>
-  <rect class="panel" x="410" y="324" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="432" y="352">Platform A</text>
-  <text class="text box-small" x="432" y="372">Java stack</text>
-  <rect class="panel" x="410" y="418" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="432" y="446">Platform B</text>
-  <text class="text box-small" x="432" y="466">Java stack</text>
+  <rect class="card dispatcher" x="210" y="416" width="300" height="48" rx="10"/>
+  <text class="text h3" x="276" y="446">Coroutine dispatcher</text>
+  <path class="arrow" d="M 360 464 L 360 508"/>
 
-  <rect class="panel os" x="672" y="230" width="220" height="286" rx="14"/>
-  <text class="text label" x="698" y="266">Operating system</text>
-  <text class="text small" x="698" y="290">Native threads</text>
-  <rect class="panel" x="698" y="324" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="720" y="352">OS thread A</text>
-  <text class="text box-small" x="720" y="372">Kernel scheduled</text>
-  <rect class="panel" x="698" y="418" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="720" y="446">OS thread B</text>
-  <text class="text box-small" x="720" y="466">Kernel scheduled</text>
+  <rect class="card thread" x="210" y="508" width="300" height="48" rx="10"/>
+  <text class="text h3" x="298" y="538">Java thread</text>
+  <path class="arrow" d="M 360 556 L 360 600"/>
 
-  <rect class="panel cpu" x="960" y="260" width="128" height="226" rx="14"/>
-  <text class="text label" x="994" y="296">CPU</text>
-  <text class="text small" x="994" y="320">cores</text>
-  <rect x="986" y="352" width="76" height="48" rx="8" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5"/>
-  <text class="text box-title" x="1004" y="382">Core 1</text>
-  <rect x="986" y="418" width="76" height="48" rx="8" fill="#ffffff" stroke="#fca5a5" stroke-width="1.5"/>
-  <text class="text box-title" x="1004" y="448">Core 2</text>
+  <rect class="card thread" x="210" y="600" width="300" height="48" rx="10"/>
+  <text class="text h3" x="304" y="630">OS thread</text>
+  <path class="arrow" d="M 360 648 L 360 692"/>
 
-  <path class="arrow" d="M 290 356 C 326 356 344 356 410 356"/>
-  <path class="arrow" d="M 578 356 C 614 356 632 356 698 356"/>
-  <path class="arrow" d="M 866 356 C 912 356 930 374 986 374"/>
-  <path class="arrow" d="M 290 450 C 326 450 344 450 410 450"/>
-  <path class="arrow" d="M 578 450 C 614 450 632 450 698 450"/>
-  <path class="arrow" d="M 866 450 C 912 450 930 440 986 440"/>
+  <rect class="card cpu" x="210" y="692" width="300" height="48" rx="10"/>
+  <text class="text h3" x="338" y="722">CPU</text>
 
-  <rect class="badge" x="333" y="340" width="32" height="32" rx="16"/>
-  <text class="text badge-text" x="344" y="361">1:1</text>
-  <rect class="badge" x="621" y="340" width="32" height="32" rx="16"/>
-  <text class="text badge-text" x="632" y="361">1:1</text>
+  <rect class="card" x="728" y="126" width="620" height="520" rx="18"/>
+  <text class="text h2" x="764" y="168">2. Kotlin thread is Java thread</text>
+  <text class="text subtitle" x="764" y="194">Kotlin has no special OS-level thread type.</text>
 
-  <rect class="panel bad" x="96" y="548" width="478" height="104" rx="14"/>
-  <text class="text box-title" x="122" y="580">Blocking I/O path</text>
-  <text class="text box-small" x="122" y="604">Request code blocks -> platform thread stays occupied -> OS thread stays occupied.</text>
-  <text class="text box-small" x="122" y="626">More blocked requests means more threads, more stacks, more scheduler pressure.</text>
+  <rect class="card coroutine" x="832" y="260" width="180" height="70" rx="12"/>
+  <text class="text h3" x="870" y="290">Kotlin</text>
+  <text class="text small" x="866" y="312">thread { ... }</text>
+  <path class="arrow" d="M 1012 295 L 1072 295"/>
 
-  <rect class="panel warn" x="626" y="548" width="478" height="104" rx="14"/>
-  <text class="text box-title" x="652" y="580">Where OS context switch happens</text>
-  <text class="text box-small" x="652" y="604">Only when the OS scheduler switches CPU execution from one OS thread to another.</text>
-  <text class="text box-small" x="652" y="626">Typical cost: often around 1-10 microseconds, plus possible CPU cache misses.</text>
+  <rect class="card thread" x="1072" y="260" width="180" height="70" rx="12"/>
+  <text class="text h3" x="1110" y="290">Java Thread</text>
+  <text class="text small" x="1108" y="312">JVM object</text>
+  <path class="arrow" d="M 1162 330 L 1162 390"/>
 
-  <rect class="panel" x="48" y="744" width="1104" height="660" rx="18"/>
-  <text class="text section-title" x="80" y="786">Diagram 2: Coroutine -> Jetty worker -> Java platform thread -> OS thread</text>
-  <text class="text subtitle" x="80" y="812">A coroutine is not an OS thread. It is scheduled onto an existing thread and can suspend without blocking that thread.</text>
+  <rect class="card thread" x="1072" y="390" width="180" height="70" rx="12"/>
+  <text class="text h3" x="1114" y="420">OS Thread</text>
+  <text class="text small" x="1102" y="442">scheduled by OS</text>
 
-  <rect class="panel coroutine" x="96" y="858" width="220" height="348" rx="14"/>
-  <text class="text label" x="122" y="894">Kotlin coroutines</text>
-  <text class="text small" x="122" y="918">Lightweight tasks</text>
-  <rect class="panel" x="122" y="952" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="144" y="980">Coroutine A</text>
-  <text class="text box-small" x="144" y="1000">Running now</text>
-  <rect class="panel" x="122" y="1040" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="144" y="1068">Coroutine B</text>
-  <text class="text box-small" x="144" y="1088">Suspended</text>
-  <rect class="panel good" x="122" y="1128" width="168" height="54" rx="10"/>
-  <text class="text box-title" x="144" y="1154">Suspend</text>
-  <text class="text box-small" x="144" y="1172">No OS switch required</text>
+  <rect class="card note" x="792" y="520" width="492" height="80" rx="12"/>
+  <text class="text h3" x="820" y="552">Normally: 1 Java thread = 1 OS thread</text>
+  <text class="text small" x="820" y="576">The JVM creates the Java thread. The OS schedules the backing OS thread.</text>
 
-  <rect class="panel jetty" x="384" y="858" width="220" height="348" rx="14"/>
-  <text class="text label" x="410" y="894">Jetty worker</text>
-  <text class="text small" x="410" y="918">Borrowed from pool</text>
-  <rect class="panel" x="410" y="952" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="432" y="980">Worker thread</text>
-  <text class="text box-small" x="432" y="1000">Runs coroutine code</text>
-  <rect class="panel good" x="410" y="1040" width="168" height="78" rx="10"/>
-  <text class="text box-title" x="432" y="1068">After suspend</text>
-  <text class="text box-small" x="432" y="1088">Worker returns to</text>
-  <text class="text box-small" x="432" y="1106">the pool</text>
+  <rect class="card" x="52" y="704" width="1296" height="420" rx="18"/>
+  <text class="text h2" x="88" y="746">3. Independent thread pools inside the JVM</text>
+  <text class="text subtitle" x="88" y="772">Jetty thread pool and coroutine dispatcher thread pools are different owners with different schedulers.</text>
 
-  <rect class="panel java" x="672" y="858" width="220" height="348" rx="14"/>
-  <text class="text label" x="698" y="894">Java JVM</text>
-  <text class="text small" x="698" y="918">Continuation state</text>
-  <rect class="panel" x="698" y="952" width="168" height="64" rx="10"/>
-  <text class="text box-title" x="720" y="980">Platform thread</text>
-  <text class="text box-small" x="720" y="1000">Still 1 OS thread</text>
-  <rect class="panel coroutine" x="698" y="1040" width="168" height="78" rx="10"/>
-  <text class="text box-title" x="720" y="1068">Continuation</text>
-  <text class="text box-small" x="720" y="1088">Small object stores</text>
-  <text class="text box-small" x="720" y="1106">where to resume</text>
+  <rect class="card jetty" x="128" y="824" width="300" height="210" rx="14"/>
+  <text class="text h3" x="164" y="860">Jetty Thread Pool</text>
+  <text class="text small" x="164" y="884">Owned by Jetty</text>
+  <rect class="card" x="164" y="920" width="90" height="42" rx="8"/>
+  <text class="text small" x="184" y="946">Jetty-1</text>
+  <rect class="card" x="270" y="920" width="90" height="42" rx="8"/>
+  <text class="text small" x="290" y="946">Jetty-2</text>
+  <rect class="card" x="164" y="974" width="90" height="42" rx="8"/>
+  <text class="text small" x="184" y="1000">Jetty-3</text>
+  <rect class="card" x="270" y="974" width="90" height="42" rx="8"/>
+  <text class="text small" x="290" y="1000">Jetty-4</text>
 
-  <rect class="panel os" x="960" y="858" width="144" height="348" rx="14"/>
-  <text class="text label" x="986" y="894">OS</text>
-  <text class="text small" x="986" y="918">thread + CPU</text>
-  <rect class="panel" x="984" y="952" width="96" height="64" rx="10"/>
-  <text class="text box-title" x="1004" y="980">OS thread</text>
-  <text class="text box-small" x="1004" y="1000">Kernel sees</text>
-  <rect class="panel cpu" x="984" y="1040" width="96" height="78" rx="10"/>
-  <text class="text box-title" x="1008" y="1074">CPU core</text>
-  <text class="text box-small" x="1008" y="1094">Executes it</text>
+  <rect class="card dispatcher" x="550" y="824" width="300" height="210" rx="14"/>
+  <text class="text h3" x="586" y="860">Dispatchers.Default</text>
+  <text class="text small" x="586" y="884">Owned by coroutines</text>
+  <rect class="card" x="586" y="920" width="104" height="42" rx="8"/>
+  <text class="text small" x="604" y="946">Default-1</text>
+  <rect class="card" x="706" y="920" width="104" height="42" rx="8"/>
+  <text class="text small" x="724" y="946">Default-2</text>
+  <rect class="card" x="586" y="974" width="104" height="42" rx="8"/>
+  <text class="text small" x="604" y="1000">Default-3</text>
 
-  <path class="arrow" d="M 290 984 C 326 984 344 984 410 984"/>
-  <path class="arrow" d="M 578 984 C 614 984 632 984 698 984"/>
-  <path class="arrow" d="M 866 984 C 906 984 926 984 984 984"/>
-  <path class="arrow dashed" d="M 206 1016 L 206 1040"/>
-  <path class="arrow dashed" d="M 290 1155 C 334 1155 354 1080 410 1080"/>
-  <path class="arrow dashed" d="M 782 1118 C 782 1152 746 1170 698 1170"/>
+  <rect class="card dispatcher" x="972" y="824" width="300" height="210" rx="14"/>
+  <text class="text h3" x="1008" y="860">Dispatchers.IO</text>
+  <text class="text small" x="1008" y="884">Owned by coroutines</text>
+  <rect class="card" x="1008" y="920" width="82" height="42" rx="8"/>
+  <text class="text small" x="1034" y="946">IO-1</text>
+  <rect class="card" x="1104" y="920" width="82" height="42" rx="8"/>
+  <text class="text small" x="1130" y="946">IO-2</text>
+  <rect class="card" x="1198" y="920" width="82" height="42" rx="8"/>
+  <text class="text small" x="1224" y="946">IO-3</text>
+  <rect class="card" x="1008" y="974" width="82" height="42" rx="8"/>
+  <text class="text small" x="1034" y="1000">IO-4</text>
 
-  <rect class="panel good" x="96" y="1238" width="308" height="108" rx="14"/>
-  <text class="text box-title" x="122" y="1270">Coroutine switch</text>
-  <text class="text box-small" x="122" y="1294">Happens inside the JVM/runtime.</text>
-  <text class="text box-small" x="122" y="1316">Saves continuation state, not kernel thread state.</text>
-  <text class="text box-small" x="122" y="1338">Typical cost: much cheaper than OS switching.</text>
+  <path class="line" d="M 488 824 L 488 1034"/>
+  <path class="line" d="M 910 824 L 910 1034"/>
+  <text class="text h3" x="496" y="936">separate</text>
+  <text class="text h3" x="918" y="936">separate</text>
 
-  <rect class="panel warn" x="446" y="1238" width="308" height="108" rx="14"/>
-  <text class="text box-title" x="472" y="1270">Dispatcher/thread hop</text>
-  <text class="text box-small" x="472" y="1294">If resumed on a different worker, work is queued.</text>
-  <text class="text box-small" x="472" y="1316">Still no OS switch just because coroutine suspended.</text>
-  <text class="text box-small" x="472" y="1338">OS switch may happen later if scheduler changes threads.</text>
+  <rect class="card" x="52" y="1182" width="620" height="420" rx="18"/>
+  <text class="text h2" x="88" y="1224">4. Who schedules what?</text>
+  <text class="text subtitle" x="88" y="1250">Two different schedulers operate at different layers.</text>
 
-  <rect class="panel bad" x="796" y="1238" width="308" height="108" rx="14"/>
-  <text class="text box-title" x="822" y="1270">Blocking inside coroutine</text>
-  <text class="text box-small" x="822" y="1294">Thread.sleep or blocking DB/HTTP call still blocks.</text>
-  <text class="text box-small" x="822" y="1316">That occupies the Jetty worker and OS thread.</text>
-  <text class="text box-small" x="822" y="1338">Use suspend/non-blocking APIs or a blocking dispatcher.</text>
+  <rect class="card dispatcher" x="124" y="1302" width="210" height="78" rx="12"/>
+  <text class="text h3" x="154" y="1334">Coroutine Dispatcher</text>
+  <text class="text small" x="154" y="1358">schedules coroutines</text>
+  <path class="arrow" d="M 334 1341 L 410 1341"/>
+  <rect class="card thread" x="410" y="1302" width="210" height="78" rx="12"/>
+  <text class="text h3" x="454" y="1334">Java Threads</text>
+  <text class="text small" x="450" y="1358">Default / IO / custom</text>
 
-  <rect class="note" x="48" y="1430" width="1104" height="42" rx="12"/>
-  <text class="text box-title" x="72" y="1456">Rule of thumb:</text>
-  <text class="text box-small" x="184" y="1456">Coroutine suspension is cheap user-space scheduling. OS context switching is kernel scheduling and is much more expensive, especially at high request counts.</text>
+  <rect class="card thread" x="124" y="1430" width="210" height="78" rx="12"/>
+  <text class="text h3" x="168" y="1462">OS Scheduler</text>
+  <text class="text small" x="158" y="1486">schedules OS threads</text>
+  <path class="arrow" d="M 334 1469 L 410 1469"/>
+  <rect class="card cpu" x="410" y="1430" width="210" height="78" rx="12"/>
+  <text class="text h3" x="466" y="1462">CPU cores</text>
+  <text class="text small" x="452" y="1486">hardware execution</text>
+
+  <rect class="card" x="728" y="1182" width="620" height="420" rx="18"/>
+  <text class="text h2" x="764" y="1224">5. Spring Boot suspend request flow</text>
+  <text class="text subtitle" x="764" y="1250">A coroutine may start on Jetty and resume elsewhere after suspension.</text>
+
+  <rect class="card jetty" x="796" y="1300" width="190" height="58" rx="10"/>
+  <text class="text h3" x="830" y="1335">Jetty Thread-2</text>
+  <path class="arrow" d="M 986 1329 L 1044 1329"/>
+  <rect class="card app" x="1044" y="1300" width="190" height="58" rx="10"/>
+  <text class="text h3" x="1082" y="1335">Controller starts</text>
+  <path class="arrow" d="M 1139 1358 L 1139 1404"/>
+  <rect class="card coroutine" x="1044" y="1404" width="190" height="58" rx="10"/>
+  <text class="text h3" x="1092" y="1439">delay()</text>
+  <path class="arrow" d="M 1044 1433 L 986 1433"/>
+  <rect class="card good" x="796" y="1404" width="190" height="58" rx="10"/>
+  <text class="text h3" x="822" y="1439">Jetty thread free</text>
+  <path class="arrow dashed" d="M 891 1462 L 891 1510"/>
+  <rect class="card dispatcher" x="796" y="1510" width="190" height="58" rx="10"/>
+  <text class="text h3" x="834" y="1545">Dispatcher</text>
+  <path class="arrow" d="M 986 1539 L 1044 1539"/>
+  <rect class="card thread" x="1044" y="1510" width="190" height="58" rx="10"/>
+  <text class="text h3" x="1080" y="1545">Default-2</text>
+
+  <rect class="card" x="52" y="1660" width="1296" height="342" rx="18"/>
+  <text class="text h2" x="88" y="1702">6. Context switching and cost</text>
+  <text class="text subtitle" x="88" y="1728">Coroutine switching and OS context switching are not the same thing.</text>
+
+  <rect class="card good" x="100" y="1780" width="360" height="118" rx="14"/>
+  <text class="text h3" x="128" y="1814">Coroutine suspension</text>
+  <text class="text small" x="128" y="1840">Runtime saves continuation state.</text>
+  <text class="text small" x="128" y="1862">No kernel context switch is required just because a coroutine suspends.</text>
+
+  <rect class="card warn" x="520" y="1780" width="360" height="118" rx="14"/>
+  <text class="text h3" x="548" y="1814">Thread hop</text>
+  <text class="text small" x="548" y="1840">Coroutine resumes on another Java thread.</text>
+  <text class="text small" x="548" y="1862">There is dispatcher queueing and scheduling overhead.</text>
+
+  <rect class="card bad" x="940" y="1780" width="360" height="118" rx="14"/>
+  <text class="text h3" x="968" y="1814">OS context switch</text>
+  <text class="text small" x="968" y="1840">OS saves/restores real OS thread state.</text>
+  <text class="text small" x="968" y="1862">Often microseconds; repeated switches and cache misses are expensive.</text>
+
+  <rect class="card note" x="100" y="1934" width="1200" height="42" rx="12"/>
+  <text class="text h3" x="128" y="1961">Key rule: CPU executes OS threads only. Java threads map to OS threads. Coroutines are scheduled tasks, not CPU execution units.</text>
 </svg>

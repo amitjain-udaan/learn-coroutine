@@ -272,41 +272,40 @@ delay(1000) suspends the coroutine</code></pre>
       <p-card>
         <h3>Jetty threads, coroutines, and context switching</h3>
         <p>
-          A normal Jetty worker is a Java platform thread backed by an operating-system thread. A coroutine
-          is different: it is lightweight work scheduled onto an existing thread, and suspending it does not
-          automatically require an OS context switch.
+          Use this mental model: coroutines are suspendable tasks, dispatchers schedule coroutines onto
+          Java threads, Java threads normally map to OS threads, and the CPU executes OS threads. Jetty's
+          thread pool is separate from coroutine dispatcher pools such as <code>Dispatchers.Default</code>
+          and <code>Dispatchers.IO</code>.
         </p>
 
         <img
           class="thread-cost-image"
           src="assets/jetty-os-thread-context-switch.svg"
-          alt="Two vertical diagrams comparing Jetty workers mapped to Java and OS threads with coroutines scheduled on Jetty workers"
+          alt="Two vertical diagrams comparing Jetty worker threads with coroutine dispatcher threads and their OS thread mappings"
         />
 
         <div class="cost-grid">
           <div>
-            <strong>OS context switch</strong>
+            <strong>Different owners</strong>
             <p>
-              The CPU stops running one OS thread, saves its state, restores another thread's state,
-              and continues. This happens in the kernel and is often measured in microseconds, with extra
-              cost when CPU caches are disturbed.
+              Jetty owns Jetty threads. Coroutine dispatchers own dispatcher threads. Both are JVM threads,
+              and JVM threads are normally backed one-to-one by OS threads.
             </p>
           </div>
 
           <div>
-            <strong>Coroutine switch</strong>
+            <strong>Different schedulers</strong>
             <p>
-              A coroutine suspension stores continuation state in user space. It is much cheaper than an OS
-              context switch, but it still has overhead, so millions of tiny suspensions are not free.
+              Coroutine dispatchers schedule coroutines onto Java threads. The operating-system scheduler
+              schedules OS threads onto CPU cores. These are separate scheduling layers.
             </p>
           </div>
 
           <div>
-            <strong>Blocking still hurts</strong>
+            <strong>One request can fan out</strong>
             <p>
-              If coroutine code calls blocking I/O on a Jetty worker, that platform thread and OS thread are
-              still occupied. Coroutines help only when the waiting operation can suspend or is moved away
-              from request workers.
+              A classic request may use many thread-backed pools. A coroutine request may launch many
+              coroutines. In both cases, the CPU ultimately runs only OS threads.
             </p>
           </div>
         </div>
