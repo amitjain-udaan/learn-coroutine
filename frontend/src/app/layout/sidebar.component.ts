@@ -100,9 +100,14 @@ export class SidebarComponent {
           routerLink: '/lessons/what-why/thread'
         },
         {
-          label: 'Concurrent vs Sequential',
+          label: 'Sequential VS Concurrent -1',
           icon: 'pi pi-sync',
           routerLink: '/lessons/what-why/concurrent-vs-sequential'
+        },
+        {
+          label: 'Sequential VS Concurrent -2',
+          icon: 'pi pi-sync',
+          routerLink: '/lessons/what-why/sequential-vs-concurrent-2'
         },
         {
           label: 'Lesson 2',

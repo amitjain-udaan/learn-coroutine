@@ -4,13 +4,32 @@ import { CardModule } from 'primeng/card';
 import { TagModule } from 'primeng/tag';
 
 import { FlipCardComponent } from '../../../shared/flip-card/flip-card.component';
+import { KotlinCommonFunctionsSectionComponent } from '../../../shared/kotlin-common-functions-section/kotlin-common-functions-section.component';
 import { KotlinCodeViewerComponent } from '../../../shared/kotlin-code-viewer/kotlin-code-viewer.component';
 import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kotlin-playground.component';
+import {
+  BUILDER_CODE,
+  COMMON_FUNCTIONS_CODE,
+  CONCURRENT_MAIN_CODE,
+  CONCURRENT_PROGRAM_CODE,
+  CONSTRUCTION_COMPANY_CODE,
+  COMPANY_PROGRAM_CODE,
+  SEQUENTIAL_MAIN_CODE,
+  SEQUENTIAL_PROGRAM_CODE
+} from '../../../shared/kotlin-programs/kotlin-programs';
 
 @Component({
   selector: 'app-concurrent-vs-sequential-page',
   standalone: true,
-  imports: [AccordionModule, CardModule, TagModule, FlipCardComponent, KotlinCodeViewerComponent, KotlinPlaygroundComponent],
+  imports: [
+    AccordionModule,
+    CardModule,
+    TagModule,
+    FlipCardComponent,
+    KotlinCodeViewerComponent,
+    KotlinCommonFunctionsSectionComponent,
+    KotlinPlaygroundComponent
+  ],
   template: `
     <section class="lesson-page">
       <header class="lesson-header">
@@ -34,8 +53,8 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
           </div>
 
           <div class="task-list" aria-label="House building task list">
-            <span>Order windows <strong>1 week</strong></span>
-            <span>Order doors <strong>1 week</strong></span>
+            <span>Order windows <strong>5 weeks</strong></span>
+            <span>Order doors <strong>5 weeks</strong></span>
             <span>Lay bricks <strong>2 weeks</strong></span>
             <span>Install windows <strong>1/2 week</strong></span>
             <span>Install doors <strong>1/2 week</strong></span>
@@ -54,12 +73,12 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
             <div class="timeline">
               <div class="timeline-step active-step">
                 <i class="pi pi-shopping-cart" aria-hidden="true"></i>
-                <span>Order windows<br>1 week</span>
+                <span>Order windows<br>5 weeks</span>
               </div>
               <i class="pi pi-arrow-right timeline-arrow" aria-hidden="true"></i>
               <div class="timeline-step wait-step">
                 <i class="pi pi-shopping-cart" aria-hidden="true"></i>
-                <span>Order doors<br>1 week</span>
+                <span>Order doors<br>5 weeks</span>
               </div>
               <i class="pi pi-arrow-right timeline-arrow" aria-hidden="true"></i>
               <div class="timeline-step done-step">
@@ -74,7 +93,7 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
             </div>
 
             <p>
-              If Bob treats every step as blocking, the work takes 5 weeks: 1 + 1 + 2 + 1/2 + 1/2.
+              If Bob treats every step as blocking, the work takes 13 weeks: 5 + 5 + 2 + 1/2 + 1/2.
               The problem is that Bob waits during supplier orders instead of using that time for brick work.
             </p>
           </div>
@@ -90,7 +109,7 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
 
               <div class="closed-state">
                 <i class="pi pi-sync" aria-hidden="true"></i>
-                <span>Flip to reveal the 3 week construction flow</span>
+                <span>Flip to reveal the 6 week construction flow</span>
               </div>
 
               <p>
@@ -105,17 +124,17 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
               </div>
 
               <div class="lane-grid">
-                <div class="lane-label">Week 1</div>
+                <div class="lane-label">Weeks 1-2</div>
                 <div class="lane-step wait-step">Windows ordered</div>
                 <div class="lane-step wait-step">Doors ordered</div>
                 <div class="lane-step active-step">Lay bricks</div>
 
-                <div class="lane-label">Week 2</div>
-                <div class="lane-step done-step">Windows ready</div>
-                <div class="lane-step done-step">Doors ready</div>
-                <div class="lane-step active-step">Lay bricks</div>
+                <div class="lane-label">Weeks 3-5</div>
+                <div class="lane-step wait-step">Waiting for windows</div>
+                <div class="lane-step wait-step">Waiting for doors</div>
+                <div class="lane-step done-step">Brick work done</div>
 
-                <div class="lane-label">Week 3</div>
+                <div class="lane-label">Week 6</div>
                 <div class="lane-step muted-step">Install windows</div>
                 <div class="lane-step muted-step">Install doors</div>
                 <div class="lane-step done-step">House ready</div>
@@ -123,7 +142,7 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
 
               <p>
                 Here Bob still does the physical work himself, but ordering windows and doors can be in progress
-                while he lays bricks. The total time becomes about 3 weeks instead of 5.
+              while he lays bricks. The total time becomes about 6 weeks instead of 13.
               </p>
             </div>
           </app-flip-card>
@@ -134,7 +153,7 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
         <p-card>
           <h3>Sequential programming</h3>
           <p>
-            Steps run in a fixed order. Bob orders windows, waits a week, orders doors, waits another week,
+            Steps run in a fixed order. Bob orders windows, waits 5 weeks, orders doors, waits another 5 weeks,
             then lays bricks and installs everything.
           </p>
         </p-card>
@@ -156,28 +175,13 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
         </p-card>
       </div>
 
-      <p-card>
-        <h3>Common functions used in this section</h3>
-        <p>
-          These helpers keep the examples focused on the scenario. Expand this when you want to inspect
-          the shared thread tracking, timing, logging, and summary code.
-        </p>
-
-        <p-accordion value="none">
-          <p-accordion-panel value="common-functions">
-            <p-accordion-header>Common Kotlin helpers</p-accordion-header>
-            <p-accordion-content>
-              <app-kotlin-code-viewer [code]="commonFunctionsCode" />
-            </p-accordion-content>
-          </p-accordion-panel>
-        </p-accordion>
-      </p-card>
+      <app-kotlin-common-functions-section [code]="commonFunctionsCode" />
 
       <p-card>
         <h3>Sequential code: Bob works alone</h3>
         <p>
           Here <code>1000 ms = 1 week</code>. Bob does every task one after another, so the total time is
-          close to 5 seconds, representing 5 weeks of house work.
+          close to 13 seconds, representing 13 weeks of house work.
         </p>
 
         <p-accordion value="run-sequential-scenario">
@@ -197,6 +201,109 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
               </p>
 
               <app-kotlin-playground [startingCode]="scenarioCode" />
+            </p-accordion-content>
+          </p-accordion-panel>
+        </p-accordion>
+      </p-card>
+
+      <p-card>
+        <h3>Concurrent code: Bob coordinates independent work</h3>
+        <p>
+          Bob starts window ordering, door ordering, and brick work at the same time. He waits for those
+          threads to finish with <code>join()</code>, then installs the windows and doors.
+        </p>
+
+        <p-accordion value="run-concurrent-scenario">
+          <p-accordion-panel value="concurrent-builder-code">
+            <p-accordion-header>Concurrent Builder code</p-accordion-header>
+            <p-accordion-content>
+              <app-kotlin-code-viewer [code]="concurrentBuilderCode" />
+            </p-accordion-content>
+          </p-accordion-panel>
+
+          <p-accordion-panel value="run-concurrent-scenario">
+            <p-accordion-header>Run the concurrent scenario</p-accordion-header>
+            <p-accordion-content>
+              <p>
+                Run the example and compare the summary with the sequential run. The total time drops
+                because the long supplier orders overlap with brick work.
+              </p>
+
+              <app-kotlin-playground [startingCode]="concurrentScenarioCode" />
+            </p-accordion-content>
+          </p-accordion-panel>
+        </p-accordion>
+      </p-card>
+
+      <p-card>
+        <h3>Next scenario: Bob opens a construction company</h3>
+        <p>
+          Bob now gets a contract for 10 similar standard-size houses. Instead of doing everything alone,
+          he hires 2 builders and splits the houses between them.
+        </p>
+
+        <div class="company-plan" aria-label="Bob construction company assigns 10 houses to 2 builders">
+          <div class="company-summary">
+            <div>
+              <span class="node-label">Contract</span>
+              <strong>10 similar houses</strong>
+            </div>
+
+            <i class="pi pi-arrow-right" aria-hidden="true"></i>
+
+            <div>
+              <span class="node-label">Team</span>
+              <strong>2 hired builders</strong>
+            </div>
+          </div>
+
+          <div class="builder-lanes">
+            <div class="builder-lane">
+              <strong>Builder 1</strong>
+              <div class="house-list" aria-label="Builder 1 assigned houses">
+                <span>House 1</span>
+                <span>House 2</span>
+                <span>House 3</span>
+                <span>House 4</span>
+                <span>House 5</span>
+              </div>
+            </div>
+
+            <div class="builder-lane">
+              <strong>Builder 2</strong>
+              <div class="house-list" aria-label="Builder 2 assigned houses">
+                <span>House 6</span>
+                <span>House 7</span>
+                <span>House 8</span>
+                <span>House 9</span>
+                <span>House 10</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p>
+          This is the next level of the same idea: each house still has sequential steps inside it, but
+          multiple builders let Bob run more than one house workflow at the same time.
+        </p>
+
+        <p-accordion value="run-company-scenario">
+          <p-accordion-panel value="construction-company-code">
+            <p-accordion-header>Construction Company code</p-accordion-header>
+            <p-accordion-content>
+              <app-kotlin-code-viewer [code]="constructionCompanyCode" />
+            </p-accordion-content>
+          </p-accordion-panel>
+
+          <p-accordion-panel value="run-company-scenario">
+            <p-accordion-header>Run the company scenario</p-accordion-header>
+            <p-accordion-content>
+              <p>
+                Run the example and watch two builder threads work at the same time. The company creates
+                one thread for each hired builder, and each builder handles five houses.
+              </p>
+
+              <app-kotlin-playground [startingCode]="companyScenarioCode" />
             </p-accordion-content>
           </p-accordion-panel>
         </p-accordion>
@@ -411,6 +518,69 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
       text-align: center;
     }
 
+    .company-plan {
+      display: grid;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+
+    .company-summary {
+      display: grid;
+      grid-template-columns: minmax(12rem, 1fr) auto minmax(12rem, 1fr);
+      gap: .75rem;
+      align-items: center;
+    }
+
+    .company-summary div,
+    .builder-lane {
+      min-width: 0;
+      padding: 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: .5rem;
+      background: #ffffff;
+      display: grid;
+      gap: .4rem;
+    }
+
+    .company-summary div {
+      border-top: .25rem solid #2563eb;
+    }
+
+    .company-summary i {
+      color: #6b7280;
+      justify-self: center;
+    }
+
+    .builder-lanes {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .builder-lane {
+      border-top: .25rem solid #0f766e;
+    }
+
+    .house-list {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: .5rem;
+    }
+
+    .house-list span {
+      min-height: 3rem;
+      padding: .5rem;
+      border: 1px solid #ccfbf1;
+      border-radius: .5rem;
+      background: #f0fdfa;
+      color: #0f766e;
+      font-size: .8125rem;
+      font-weight: 800;
+      display: grid;
+      place-items: center;
+      text-align: center;
+    }
+
     pre {
       overflow-x: auto;
       margin: 1rem 0 0;
@@ -432,7 +602,9 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
 
     @media (max-width: 900px) {
       .scenario-intro,
-      .scenario-grid {
+      .scenario-grid,
+      .company-summary,
+      .builder-lanes {
         grid-template-columns: 1fr;
       }
 
@@ -448,135 +620,23 @@ import { KotlinPlaygroundComponent } from '../../../shared/kotlin-playground/kot
         grid-template-columns: 4.5rem repeat(3, minmax(4.5rem, 1fr));
         overflow-x: auto;
       }
+
+      .company-summary i {
+        transform: rotate(90deg);
+      }
+
+      .house-list {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
     }
   `]
 })
 export class ConcurrentVsSequentialPageComponent {
-  protected readonly commonFunctionsCode = `data class ThreadTiming(
-    val name: String,
-    val firstSeenAt: Long,
-    var lastSeenAt: Long
-) {
-    val livedForMillis: Long
-        get() = lastSeenAt - firstSeenAt
-}
-
-class ThreadNameStore {
-    companion object {
-        private val threadTimings = mutableMapOf<String, ThreadTiming>()
-
-        @Synchronized
-        fun addThreadName() {
-            val threadName = Thread.currentThread().name
-            val now = System.currentTimeMillis()
-
-            val timing = threadTimings[threadName]
-            if (timing == null) {
-                threadTimings[threadName] = ThreadTiming(
-                    name = threadName,
-                    firstSeenAt = now,
-                    lastSeenAt = now
-                )
-            } else {
-                timing.lastSeenAt = now
-            }
-        }
-
-        @Synchronized
-        fun getThreadNames(): Set<String> = threadTimings.keys.toSet()
-
-        @Synchronized
-        fun getThreadTimings(): List<ThreadTiming> = threadTimings.values
-            .map { timing ->
-                timing.copy()
-            }
-            .sortedBy { timing ->
-                timing.firstSeenAt
-            }
-    }
-}
-
-fun <T> measureTime(block: () -> T): Pair<T, Long> {
-    val startedAt = System.currentTimeMillis()
-    val result = block()
-    val finishedAt = System.currentTimeMillis()
-
-    return result to finishedAt - startedAt
-}
-
-fun log(message: String) {
-    ThreadNameStore.addThreadName()
-    val time = java.time.LocalTime.now().format(
-        java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
-    )
-
-    println("${'$'}time | ${'$'}{Thread.currentThread().name} | ${'$'}message")
-}
-
-fun printSummary(label: String, elapsedMillis: Long) {
-    val threadTimings = ThreadNameStore.getThreadTimings()
-
-    println()
-    println("========== ${'$'}label summary ==========")
-    println("Total time    : ${'$'}elapsedMillis ms")
-    println("Total threads : ${'$'}{threadTimings.size}")
-    println("Thread timings:")
-    threadTimings.forEach { timing ->
-        println("  - ${'$'}{timing.name}: ${'$'}{timing.livedForMillis} ms")
-    }
-    println("======================================")
-}`;
-
-  protected readonly sequentialBuilderCode = `const val WEEK = 1000L
-const val HALF_WEEK = WEEK / 2
-
-class Builder {
-    fun orderWindows() {
-        log("ordering windows")
-        Thread.sleep(WEEK)
-        log("ordered windows completed")
-    }
-
-    fun orderDoors() {
-        log("ordering doors")
-        Thread.sleep(WEEK)
-        log("ordered doors completed")
-    }
-
-    fun stackBrick() {
-        log("laying brick")
-        Thread.sleep(2 * WEEK)
-        log("stack brick completed")
-    }
-
-    fun installWindow() {
-        log("installing window")
-        Thread.sleep(HALF_WEEK)
-        log("installed window completed")
-    }
-
-    fun installDoor() {
-        log("installing door")
-        Thread.sleep(HALF_WEEK)
-        log("installed door completed")
-    }
-}`;
-
-  protected readonly scenarioCode = `${this.commonFunctionsCode}
-
-${this.sequentialBuilderCode}
-
-fun main() {
-    val builder = Builder()
-
-    val (_, sequentialTime) = measureTime {
-        builder.orderWindows()
-        builder.orderDoors()
-        builder.stackBrick()
-        builder.installWindow()
-        builder.installDoor()
-    }
-
-    printSummary("Sequential", sequentialTime)
-}`;
+  protected readonly commonFunctionsCode = COMMON_FUNCTIONS_CODE;
+  protected readonly sequentialBuilderCode = BUILDER_CODE;
+  protected readonly scenarioCode = SEQUENTIAL_PROGRAM_CODE;
+  protected readonly concurrentBuilderCode = CONCURRENT_MAIN_CODE;
+  protected readonly concurrentScenarioCode = CONCURRENT_PROGRAM_CODE;
+  protected readonly constructionCompanyCode = CONSTRUCTION_COMPANY_CODE;
+  protected readonly companyScenarioCode = COMPANY_PROGRAM_CODE;
 }

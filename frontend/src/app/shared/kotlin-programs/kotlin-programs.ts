@@ -1,4 +1,31 @@
-data class ThreadTiming(
+export interface KotlinProgram {
+  id: string;
+  groupId: string;
+  label: string;
+  description: string;
+  code: string;
+}
+
+export interface KotlinProgramGroup {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export const KOTLIN_PROGRAM_GROUPS: KotlinProgramGroup[] = [
+  {
+    id: 'basics',
+    label: 'Basics',
+    description: 'Small starter programs for checking the Kotlin playground.'
+  },
+  {
+    id: 'sequential-vs-concurrent',
+    label: 'Sequential VS Concurrent',
+    description: 'Programs from the Bob builder scenarios.'
+  }
+];
+
+export const COMMON_FUNCTIONS_CODE = `data class ThreadTiming(
     val name: String,
     val startedAt: Long,
     var lastSeenAt: Long,
@@ -114,15 +141,15 @@ fun printSummary(label: String, elapsedMillis: Long) {
     println()
     println("========== $label summary ==========")
     println("Total time    : $elapsedMillis ms")
-    println("Total threads : ${threadTimings.size}")
+    println("Total threads : \${threadTimings.size}")
     println("Thread timings:")
     threadTimings.forEach { timing ->
-        println("  - ${timing.name}: ${timing.livedForMillis} ms")
+        println("  - \${timing.name}: \${timing.livedForMillis} ms")
     }
     println("======================================")
-}
+}`;
 
-const val WEEK = 1000L
+export const BUILDER_CODE = `const val WEEK = 1000L
 const val HALF_WEEK = WEEK / 2
 const val SUPPLIER_ORDER_TIME = 5 * WEEK
 
@@ -180,9 +207,46 @@ class Builder {
         Thread.sleep(HALF_WEEK)
         log("installed door completed")
     }
-}
+}`;
 
-class ConstructionCompany(
+export const SEQUENTIAL_MAIN_CODE = `fun main() {
+    val builder = Builder()
+
+    runTrackedMain("Sequential") {
+        builder.orderWindows()
+        builder.orderDoors()
+        builder.stackBrick()
+        builder.installWindow()
+        builder.installDoor()
+    }
+}`;
+
+export const CONCURRENT_MAIN_CODE = `fun main() {
+    val builder = Builder()
+
+    runTrackedMain("Concurrent") {
+        val orderWindowsThread = trackedThread("order-windows") {
+            builder.orderWindows()
+        }
+
+        val orderDoorsThread = trackedThread("order-doors") {
+            builder.orderDoors()
+        }
+
+        val stackBrickThread = trackedThread("stack-brick") {
+            builder.stackBrick()
+        }
+
+        orderWindowsThread.join()
+        orderDoorsThread.join()
+        stackBrickThread.join()
+
+        builder.installWindow()
+        builder.installDoor()
+    }
+}`;
+
+export const CONSTRUCTION_COMPANY_CODE = `class ConstructionCompany(
     private val builderOne: Builder = Builder(),
     private val builderTwo: Builder = Builder()
 ) {
@@ -216,4 +280,55 @@ fun main() {
     runTrackedMain("Construction company") {
         company.buildTenHouses()
     }
-}
+}`;
+
+export const SEQUENTIAL_PROGRAM_CODE = `${COMMON_FUNCTIONS_CODE}
+
+${BUILDER_CODE}
+
+${SEQUENTIAL_MAIN_CODE}`;
+
+export const CONCURRENT_PROGRAM_CODE = `${COMMON_FUNCTIONS_CODE}
+
+${BUILDER_CODE}
+
+${CONCURRENT_MAIN_CODE}`;
+
+export const COMPANY_PROGRAM_CODE = `${COMMON_FUNCTIONS_CODE}
+
+${BUILDER_CODE}
+
+${CONSTRUCTION_COMPANY_CODE}`;
+
+export const KOTLIN_PROGRAMS: KotlinProgram[] = [
+  {
+    id: 'hello-world',
+    groupId: 'basics',
+    label: 'Hello world',
+    description: 'A tiny starter program for checking the Kotlin playground.',
+    code: `fun main() {
+    println("Hello, world!")
+}`
+  },
+  {
+    id: 'sequential-builder',
+    groupId: 'sequential-vs-concurrent',
+    label: 'Sequential builder',
+    description: 'Bob builds one house by running every step one after another.',
+    code: SEQUENTIAL_PROGRAM_CODE
+  },
+  {
+    id: 'concurrent-builder',
+    groupId: 'sequential-vs-concurrent',
+    label: 'Concurrent builder',
+    description: 'Bob overlaps supplier orders and brick work with explicit threads.',
+    code: CONCURRENT_PROGRAM_CODE
+  },
+  {
+    id: 'construction-company',
+    groupId: 'sequential-vs-concurrent',
+    label: 'Construction company',
+    description: 'Bob hires two builders and runs two builder threads for 10 houses.',
+    code: COMPANY_PROGRAM_CODE
+  }
+];
