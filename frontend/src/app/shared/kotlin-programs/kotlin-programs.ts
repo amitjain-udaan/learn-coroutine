@@ -12,6 +12,44 @@ export interface KotlinProgramGroup {
   description: string;
 }
 
+export interface BuilderTimingConfig {
+  weekMillis: number;
+  windowOrderWeeks: number;
+  doorOrderWeeks: number;
+  brickWeeks: number;
+  installWindowWeeks: number;
+  installDoorWeeks: number;
+}
+
+export interface ConstructionCompanyConfig {
+  houseCount: number;
+  builderCount: number;
+}
+
+export interface BuilderProgramConfig {
+  timing: BuilderTimingConfig;
+  company: ConstructionCompanyConfig;
+}
+
+export const DEFAULT_BUILDER_TIMING_CONFIG: BuilderTimingConfig = {
+  weekMillis: 1000,
+  windowOrderWeeks: 5,
+  doorOrderWeeks: 5,
+  brickWeeks: 2,
+  installWindowWeeks: 0.5,
+  installDoorWeeks: 0.5
+};
+
+export const DEFAULT_CONSTRUCTION_COMPANY_CONFIG: ConstructionCompanyConfig = {
+  houseCount: 10,
+  builderCount: 2
+};
+
+export const DEFAULT_BUILDER_PROGRAM_CONFIG: BuilderProgramConfig = {
+  timing: DEFAULT_BUILDER_TIMING_CONFIG,
+  company: DEFAULT_CONSTRUCTION_COMPANY_CONFIG
+};
+
 export const KOTLIN_PROGRAM_GROUPS: KotlinProgramGroup[] = [
   {
     id: 'basics',
@@ -149,9 +187,14 @@ fun printSummary(label: String, elapsedMillis: Long) {
     println("======================================")
 }`;
 
-export const BUILDER_CODE = `const val WEEK = 1000L
-const val HALF_WEEK = WEEK / 2
-const val SUPPLIER_ORDER_TIME = 5 * WEEK
+export function buildBuilderCode(config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG): string {
+  return `const val WEEK = ${config.weekMillis}L
+
+val WINDOW_ORDER_TIME = (${config.windowOrderWeeks} * WEEK).toLong()
+val DOOR_ORDER_TIME = (${config.doorOrderWeeks} * WEEK).toLong()
+val BRICK_TIME = (${config.brickWeeks} * WEEK).toLong()
+val INSTALL_WINDOW_TIME = (${config.installWindowWeeks} * WEEK).toLong()
+val INSTALL_DOOR_TIME = (${config.installDoorWeeks} * WEEK).toLong()
 
 class Builder {
     fun buildHouse(houseName: String) {
@@ -180,34 +223,37 @@ class Builder {
 
     fun orderWindows() {
         log("ordering windows")
-        Thread.sleep(SUPPLIER_ORDER_TIME)
+        Thread.sleep(WINDOW_ORDER_TIME)
         log("ordered windows completed")
     }
 
     fun orderDoors() {
         log("ordering doors")
-        Thread.sleep(SUPPLIER_ORDER_TIME)
+        Thread.sleep(DOOR_ORDER_TIME)
         log("ordered doors completed")
     }
 
     fun stackBrick() {
         log("laying brick")
-        Thread.sleep(2 * WEEK)
+        Thread.sleep(BRICK_TIME)
         log("stack brick completed")
     }
 
     fun installWindow() {
         log("installing window")
-        Thread.sleep(HALF_WEEK)
+        Thread.sleep(INSTALL_WINDOW_TIME)
         log("installed window completed")
     }
 
     fun installDoor() {
         log("installing door")
-        Thread.sleep(HALF_WEEK)
+        Thread.sleep(INSTALL_DOOR_TIME)
         log("installed door completed")
     }
 }`;
+}
+
+export const BUILDER_CODE = buildBuilderCode();
 
 export const SEQUENTIAL_MAIN_CODE = `fun main() {
     val builder = Builder()
@@ -246,31 +292,40 @@ export const CONCURRENT_MAIN_CODE = `fun main() {
     }
 }`;
 
-export const CONSTRUCTION_COMPANY_CODE = `class ConstructionCompany(
-    private val builderOne: Builder = Builder(),
-    private val builderTwo: Builder = Builder()
-) {
-    fun buildTenHouses() {
-        val builderOneThread = trackedThread("builder-1-thread") {
-            buildAssignedHouses("builder 1", builderOne, 1..5)
+export function buildConstructionCompanyCode(config: ConstructionCompanyConfig = DEFAULT_CONSTRUCTION_COMPANY_CONFIG): string {
+  const houseCount = Math.max(1, Math.floor(config.houseCount));
+  const builderCount = Math.max(1, Math.min(houseCount, Math.floor(config.builderCount)));
+
+  return `const val HOUSE_COUNT = ${houseCount}
+const val BUILDER_COUNT = ${builderCount}
+
+class ConstructionCompany {
+    fun buildHouses() {
+        val builderThreads = (1..BUILDER_COUNT).map { builderNumber ->
+            val builder = Builder()
+
+            trackedThread("builder-$builderNumber-thread") {
+                buildAssignedHouses(builderNumber, builder)
+            }
         }
 
-        val builderTwoThread = trackedThread("builder-2-thread") {
-            buildAssignedHouses("builder 2", builderTwo, 6..10)
+        builderThreads.forEach { builderThread ->
+            builderThread.join()
         }
-
-        builderOneThread.join()
-        builderTwoThread.join()
     }
 
-    private fun buildAssignedHouses(builderName: String, builder: Builder, houseNumbers: IntRange) {
-        log("$builderName started assigned houses $houseNumbers")
+    private fun buildAssignedHouses(builderNumber: Int, builder: Builder) {
+        val assignedHouses = (1..HOUSE_COUNT).filter { houseNumber ->
+            (houseNumber - 1) % BUILDER_COUNT == builderNumber - 1
+        }
 
-        houseNumbers.forEach { houseNumber ->
+        log("builder $builderNumber started assigned houses $assignedHouses")
+
+        assignedHouses.forEach { houseNumber ->
             builder.buildHouse("house $houseNumber")
         }
 
-        log("$builderName completed assigned houses $houseNumbers")
+        log("builder $builderNumber completed assigned houses $assignedHouses")
     }
 }
 
@@ -278,9 +333,12 @@ fun main() {
     val company = ConstructionCompany()
 
     runTrackedMain("Construction company") {
-        company.buildTenHouses()
+        company.buildHouses()
     }
 }`;
+}
+
+export const CONSTRUCTION_COMPANY_CODE = buildConstructionCompanyCode();
 
 export const SEQUENTIAL_PROGRAM_CODE = `${COMMON_FUNCTIONS_CODE}
 
@@ -299,6 +357,39 @@ export const COMPANY_PROGRAM_CODE = `${COMMON_FUNCTIONS_CODE}
 ${BUILDER_CODE}
 
 ${CONSTRUCTION_COMPANY_CODE}`;
+
+export function buildKotlinProgramCode(
+  programId: string,
+  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG
+): string {
+  const builderCode = buildBuilderCode(config.timing);
+
+  if (programId === 'sequential-builder') {
+    return `${COMMON_FUNCTIONS_CODE}
+
+${builderCode}
+
+${SEQUENTIAL_MAIN_CODE}`;
+  }
+
+  if (programId === 'concurrent-builder') {
+    return `${COMMON_FUNCTIONS_CODE}
+
+${builderCode}
+
+${CONCURRENT_MAIN_CODE}`;
+  }
+
+  if (programId === 'construction-company') {
+    return `${COMMON_FUNCTIONS_CODE}
+
+${builderCode}
+
+${buildConstructionCompanyCode(config.company)}`;
+  }
+
+  return KOTLIN_PROGRAMS.find((program) => program.id === programId)?.code ?? KOTLIN_PROGRAMS[0].code;
+}
 
 export const KOTLIN_PROGRAMS: KotlinProgram[] = [
   {

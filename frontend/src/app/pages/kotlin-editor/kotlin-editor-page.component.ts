@@ -7,10 +7,13 @@ import { BasicsProgramGroupComponent } from '../../shared/kotlin-program-groups/
 import { SequentialVsConcurrentProgramGroupComponent } from '../../shared/kotlin-program-groups/sequential-vs-concurrent-program-group.component';
 import { KotlinPlaygroundComponent } from '../../shared/kotlin-playground/kotlin-playground.component';
 import {
+  BuilderProgramConfig,
+  DEFAULT_BUILDER_PROGRAM_CONFIG,
   KOTLIN_PROGRAM_GROUPS,
   KOTLIN_PROGRAMS,
   KotlinProgram,
-  KotlinProgramGroup
+  KotlinProgramGroup,
+  buildKotlinProgramCode
 } from '../../shared/kotlin-programs/kotlin-programs';
 
 @Component({
@@ -68,11 +71,15 @@ import {
           <app-basics-program-group [selectedProgram]="selectedProgram" />
         }
         @case ('sequential-vs-concurrent') {
-          <app-sequential-vs-concurrent-program-group [selectedProgram]="selectedProgram" />
+          <app-sequential-vs-concurrent-program-group
+            [selectedProgram]="selectedProgram"
+            [programConfig]="builderProgramConfig"
+            (programConfigChange)="builderProgramConfig = $event"
+          />
         }
       }
 
-      <app-kotlin-playground [startingCode]="selectedProgram.code" />
+      <app-kotlin-playground [startingCode]="selectedProgramCode" />
     </section>
   `,
   styles: [`
@@ -104,7 +111,6 @@ import {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 1rem;
-      max-width: 42rem;
     }
 
     .program-picker {
@@ -134,6 +140,10 @@ export class KotlinEditorPageComponent {
   protected readonly programs: KotlinProgram[] = KOTLIN_PROGRAMS;
   protected selectedGroupId = this.programGroups[0].id;
   protected selectedProgramId = this.filteredPrograms[0].id;
+  protected builderProgramConfig: BuilderProgramConfig = {
+    timing: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.timing },
+    company: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.company }
+  };
 
   protected get filteredPrograms(): KotlinProgram[] {
     return this.programs.filter((program) => program.groupId === this.selectedGroupId);
@@ -141,6 +151,10 @@ export class KotlinEditorPageComponent {
 
   protected get selectedProgram(): KotlinProgram {
     return this.filteredPrograms.find((program) => program.id === this.selectedProgramId) ?? this.filteredPrograms[0];
+  }
+
+  protected get selectedProgramCode(): string {
+    return buildKotlinProgramCode(this.selectedProgram.id, this.builderProgramConfig);
   }
 
   protected handleGroupChange(): void {
