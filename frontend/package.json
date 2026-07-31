@@ -8,6 +8,7 @@
   },
   "scripts": {
     "start": "ng serve",
+    "kotlin-runner": "node scripts/kotlin-runner-server.mjs",
     "build": "ng build",
     "test": "ng test",
     "lint": "ng lint"

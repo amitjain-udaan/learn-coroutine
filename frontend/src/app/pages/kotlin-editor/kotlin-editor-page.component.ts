@@ -5,7 +5,7 @@ import { TagModule } from 'primeng/tag';
 
 import { BasicsProgramGroupComponent } from '../../shared/kotlin-program-groups/basics-program-group.component';
 import { SequentialVsConcurrentProgramGroupComponent } from '../../shared/kotlin-program-groups/sequential-vs-concurrent-program-group.component';
-import { KotlinPlaygroundComponent } from '../../shared/kotlin-playground/kotlin-playground.component';
+import { KotlinLocalRunnerComponent } from '../../shared/kotlin-local-runner/kotlin-local-runner.component';
 import {
   BuilderProgramConfig,
   DEFAULT_BUILDER_PROGRAM_CONFIG,
@@ -22,7 +22,7 @@ import {
   imports: [
     BasicsProgramGroupComponent,
     FormsModule,
-    KotlinPlaygroundComponent,
+    KotlinLocalRunnerComponent,
     SelectModule,
     SequentialVsConcurrentProgramGroupComponent,
     TagModule
@@ -79,7 +79,7 @@ import {
         }
       }
 
-      <app-kotlin-playground [startingCode]="selectedProgramCode" />
+      <app-kotlin-local-runner [code]="selectedProgramCode" />
     </section>
   `,
   styles: [`
