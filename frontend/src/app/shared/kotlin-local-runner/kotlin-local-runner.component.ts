@@ -108,19 +108,34 @@ interface KotlinRunSnapshot {
               }
             </div>
 
-            <button
-              pButton
-              type="button"
-              [icon]="expandedPane() === 'code' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              [attr.aria-label]="expandedPane() === 'code' ? 'Restore code and output view' : 'Expand Kotlin code'"
-              (click)="toggleExpandedPane('code')">
-            </button>
+            <div class="panel-actions">
+              <label class="font-size-control" for="code-font-size">
+                <span>Font</span>
+                <input
+                  id="code-font-size"
+                  type="number"
+                  min="12"
+                  max="22"
+                  step="1"
+                  [(ngModel)]="codeFontSizePx"
+                  aria-label="Kotlin code font size"
+                />
+              </label>
+
+              <button
+                pButton
+                type="button"
+                [icon]="expandedPane() === 'code' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                [attr.aria-label]="expandedPane() === 'code' ? 'Restore code and output view' : 'Expand Kotlin code'"
+                (click)="toggleExpandedPane('code')">
+              </button>
+            </div>
           </header>
 
-          <div class="code-surface">
+          <div class="code-surface" [style.--code-font-size.px]="codeFontSizePx">
             @if (isEditingCode()) {
               <textarea
                 class="code-editor"
@@ -148,19 +163,34 @@ interface KotlinRunSnapshot {
               }
             </div>
 
-            <button
-              pButton
-              type="button"
-              [icon]="expandedPane() === 'output' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
-              severity="secondary"
-              [text]="true"
-              [rounded]="true"
-              [attr.aria-label]="expandedPane() === 'output' ? 'Restore code and output view' : 'Expand output'"
-              (click)="toggleExpandedPane('output')">
-            </button>
+            <div class="panel-actions">
+              <label class="font-size-control" for="output-font-size">
+                <span>Font</span>
+                <input
+                  id="output-font-size"
+                  type="number"
+                  min="12"
+                  max="22"
+                  step="1"
+                  [(ngModel)]="outputFontSizePx"
+                  aria-label="Output font size"
+                />
+              </label>
+
+              <button
+                pButton
+                type="button"
+                [icon]="expandedPane() === 'output' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                [attr.aria-label]="expandedPane() === 'output' ? 'Restore code and output view' : 'Expand output'"
+                (click)="toggleExpandedPane('output')">
+              </button>
+            </div>
           </header>
 
-          <pre>{{ outputText() }}</pre>
+          <pre [style.--output-font-size.px]="outputFontSizePx">{{ outputText() }}</pre>
         </section>
       </div>
     </section>
@@ -284,6 +314,37 @@ interface KotlinRunSnapshot {
       min-width: 0;
     }
 
+    .panel-actions {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    .font-size-control {
+      display: inline-flex;
+      align-items: center;
+      gap: .35rem;
+      color: #4b5563;
+      font-size: .8125rem;
+      font-weight: 700;
+    }
+
+    .font-size-control input {
+      width: 3.25rem;
+      min-height: 2rem;
+      padding: .25rem .35rem;
+      border: 1px solid #d1d5db;
+      border-radius: .375rem;
+      color: #111827;
+      font: inherit;
+    }
+
+    .font-size-control input:focus {
+      border-color: #2563eb;
+      outline: 2px solid #bfdbfe;
+      outline-offset: 1px;
+    }
+
     .common-functions-toggle {
       display: inline-flex;
       align-items: center;
@@ -324,6 +385,7 @@ interface KotlinRunSnapshot {
       background: #eef3f8;
       color: #1f2937;
       box-shadow: inset 0 0 0 1px #d8e2ee;
+      font-size: var(--code-font-size, .875rem);
     }
 
     :host ::ng-deep app-kotlin-code-viewer .token-keyword {
@@ -366,7 +428,7 @@ interface KotlinRunSnapshot {
       color: #111827;
       box-shadow: inset 0 0 0 1px #d8e2ee;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: .875rem;
+      font-size: var(--code-font-size, .875rem);
       line-height: 1.6;
       resize: none;
       tab-size: 4;
@@ -399,7 +461,7 @@ interface KotlinRunSnapshot {
       color: #e5e7eb;
       box-shadow: inset 0 0 0 1px #1e293b;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
-      font-size: .875rem;
+      font-size: var(--output-font-size, .875rem);
       line-height: 1.6;
       white-space: pre;
     }
@@ -451,6 +513,8 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   protected readonly snapshot = signal<KotlinRunSnapshot | undefined>(undefined);
   protected readonly outputText = signal('Runner output will appear here.');
   protected codePanePercent = 50;
+  protected codeFontSizePx = 12;
+  protected outputFontSizePx = 12;
 
   constructor(private readonly http: HttpClient) {}
 
