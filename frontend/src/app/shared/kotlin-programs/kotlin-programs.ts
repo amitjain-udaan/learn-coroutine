@@ -76,11 +76,15 @@ export const COMMON_FUNCTIONS_CODE = `data class ThreadTiming(
 class ThreadNameStore {
     companion object {
         private val threadTimings = mutableMapOf<String, ThreadTiming>()
+        private var runningThreadCount = 0
+        private var maxRunningThreadCount = 0
 
         @Synchronized
         fun markThreadStarted() {
             val threadName = Thread.currentThread().name
             val now = System.currentTimeMillis()
+
+            val isNewThread = !threadTimings.containsKey(threadName)
 
             threadTimings.getOrPut(threadName) {
                 ThreadTiming(
@@ -88,6 +92,13 @@ class ThreadNameStore {
                     startedAt = now,
                     lastSeenAt = now
                 )
+            }
+
+            if (isNewThread) {
+                runningThreadCount += 1
+                if (runningThreadCount > maxRunningThreadCount) {
+                    maxRunningThreadCount = runningThreadCount
+                }
             }
         }
 
@@ -112,7 +123,12 @@ class ThreadNameStore {
         @Synchronized
         fun markThreadFinished() {
             markThreadSeen()
-            threadTimings[Thread.currentThread().name]?.finishedAt = System.currentTimeMillis()
+            val timing = threadTimings[Thread.currentThread().name]
+
+            if (timing?.finishedAt == null) {
+                timing?.finishedAt = System.currentTimeMillis()
+                runningThreadCount -= 1
+            }
         }
 
         @Synchronized
@@ -126,6 +142,9 @@ class ThreadNameStore {
             .sortedBy { timing ->
                 timing.startedAt
             }
+
+        @Synchronized
+        fun getMaxRunningThreadCount(): Int = maxRunningThreadCount
     }
 }
 
@@ -175,11 +194,13 @@ fun runTrackedMain(label: String, block: () -> Unit) {
 
 fun printSummary(label: String, elapsedMillis: Long) {
     val threadTimings = ThreadNameStore.getThreadTimings()
+    val maxRunningThreads = ThreadNameStore.getMaxRunningThreadCount()
 
     println()
     println("========== $label summary ==========")
     println("Total time    : $elapsedMillis ms")
     println("Total threads : \${threadTimings.size}")
+    println("Max running   : $maxRunningThreads")
     println("Thread timings:")
     threadTimings.forEach { timing ->
         println("  - \${timing.name}: \${timing.livedForMillis} ms")
