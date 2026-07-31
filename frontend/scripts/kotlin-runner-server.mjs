@@ -19,7 +19,9 @@ const jobs = new Map();
 const allowedOrigins = new Set([
   process.env.KOTLIN_RUNNER_ORIGIN,
   'http://localhost:4200',
-  'http://127.0.0.1:4200'
+  'http://127.0.0.1:4200',
+  'http://localhost:4201',
+  'http://127.0.0.1:4201'
 ].filter(Boolean));
 
 const server = createServer(async (request, response) => {

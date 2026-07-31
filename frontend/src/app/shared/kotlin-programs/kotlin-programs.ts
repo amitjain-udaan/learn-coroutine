@@ -434,7 +434,7 @@ export const KOTLIN_PROGRAMS: KotlinProgram[] = [
     id: 'construction-company',
     groupId: 'sequential-vs-concurrent',
     label: 'Construction company',
-    description: 'Bob hires two builders and runs two builder threads for 10 houses.',
+    description: 'Bob hires builders and runs builder threads for a configurable number of houses.',
     code: COMPANY_PROGRAM_CODE
   }
 ];
