@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
+import { KotlinProgramGroupSettingsComponent } from './kotlin-program-group-settings.component';
 import { KotlinCommonFunctionsSectionComponent } from '../kotlin-common-functions-section/kotlin-common-functions-section.component';
 import {
   BuilderProgramConfig,
@@ -12,17 +13,14 @@ import {
 @Component({
   selector: 'app-sequential-vs-concurrent-program-group',
   standalone: true,
-  imports: [FormsModule, KotlinCommonFunctionsSectionComponent],
+  imports: [FormsModule, KotlinCommonFunctionsSectionComponent, KotlinProgramGroupSettingsComponent],
   template: `
     <section class="group-content" aria-label="Sequential versus concurrent program group">
-      <div class="group-panel">
-        <div>
-          <span class="group-label">Sequential VS Concurrent</span>
-          <strong>{{ selectedProgram.label }}</strong>
-        </div>
-
-        <p>{{ selectedProgram.description }}</p>
-
+      <app-kotlin-program-group-settings
+        groupLabel="Sequential VS Concurrent"
+        ariaLabel="Sequential versus concurrent program settings"
+        [selectedProgram]="selectedProgram"
+      >
         <div class="timing-grid" aria-label="Editable scenario timing">
           <label>
             <span>1 week is</span>
@@ -131,7 +129,7 @@ import {
             </div>
           </div>
         }
-      </div>
+      </app-kotlin-program-group-settings>
 
       <app-kotlin-common-functions-section [code]="commonFunctionsCode" />
     </section>
@@ -140,29 +138,6 @@ import {
     .group-content {
       display: grid;
       gap: 1rem;
-    }
-
-    .group-panel {
-      display: grid;
-      gap: .75rem;
-      padding: 1rem;
-      border: 1px solid #ccfbf1;
-      border-radius: .5rem;
-      border-top: .25rem solid #0f766e;
-      background: #f0fdfa;
-    }
-
-    .group-label {
-      display: block;
-      margin-bottom: .35rem;
-      color: #0f766e;
-      font-size: .75rem;
-      font-weight: 800;
-      text-transform: uppercase;
-    }
-
-    strong {
-      color: #111827;
     }
 
     p {
@@ -192,20 +167,20 @@ import {
       font-weight: 800;
     }
 
-    label {
+    .timing-grid label {
       min-width: 0;
       padding: .65rem;
-      border: 1px solid #99f6e4;
+      border: 1px solid #d1d5db;
       border-radius: .5rem;
-      background: #ffffff;
+      background: #f9fafb;
       display: grid;
       grid-template-columns: 1fr;
       gap: .35rem;
     }
 
-    label span,
+    .timing-grid label span,
     small {
-      color: #0f766e;
+      color: #374151;
       font-size: .8125rem;
       font-weight: 700;
     }
@@ -214,15 +189,15 @@ import {
       width: 100%;
       min-height: 2.35rem;
       padding: .45rem .55rem;
-      border: 1px solid #99f6e4;
+      border: 1px solid #d1d5db;
       border-radius: .375rem;
       color: #111827;
       font: inherit;
     }
 
     input:focus {
-      border-color: #0f766e;
-      outline: 2px solid #99f6e4;
+      border-color: #2563eb;
+      outline: 2px solid #bfdbfe;
       outline-offset: 1px;
     }
 

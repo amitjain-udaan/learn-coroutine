@@ -381,32 +381,26 @@ ${CONSTRUCTION_COMPANY_CODE}`;
 
 export function buildKotlinProgramCode(
   programId: string,
-  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG
+  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG,
+  includeCommonFunctions = true
 ): string {
   const builderCode = buildBuilderCode(config.timing);
+  const buildProgramCode = (programCode: string): string => [
+    includeCommonFunctions ? COMMON_FUNCTIONS_CODE : '',
+    builderCode,
+    programCode
+  ].filter(Boolean).join('\n\n');
 
   if (programId === 'sequential-builder') {
-    return `${COMMON_FUNCTIONS_CODE}
-
-${builderCode}
-
-${SEQUENTIAL_MAIN_CODE}`;
+    return buildProgramCode(SEQUENTIAL_MAIN_CODE);
   }
 
   if (programId === 'concurrent-builder') {
-    return `${COMMON_FUNCTIONS_CODE}
-
-${builderCode}
-
-${CONCURRENT_MAIN_CODE}`;
+    return buildProgramCode(CONCURRENT_MAIN_CODE);
   }
 
   if (programId === 'construction-company') {
-    return `${COMMON_FUNCTIONS_CODE}
-
-${builderCode}
-
-${buildConstructionCompanyCode(config.company)}`;
+    return buildProgramCode(buildConstructionCompanyCode(config.company));
   }
 
   return KOTLIN_PROGRAMS.find((program) => program.id === programId)?.code ?? KOTLIN_PROGRAMS[0].code;

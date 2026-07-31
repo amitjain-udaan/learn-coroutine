@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { AvatarModule } from 'primeng/avatar';
 import { ButtonModule } from 'primeng/button';
 import { ToolbarModule } from 'primeng/toolbar';
@@ -10,9 +10,22 @@ import { ToolbarModule } from 'primeng/toolbar';
   template: `
     <p-toolbar styleClass="topbar">
       <ng-template pTemplate="start">
-        <div>
-          <h1>Dashboard</h1>
-          <span>Kotlin coroutine lessons.</span>
+        <div class="topbar-start">
+          <button
+            pButton
+            type="button"
+            [icon]="isSidebarOpen ? 'pi pi-angle-left' : 'pi pi-bars'"
+            severity="secondary"
+            [text]="true"
+            [rounded]="true"
+            [attr.aria-label]="isSidebarOpen ? 'Close sidebar' : 'Open sidebar'"
+            (click)="toggleSidebar.emit()">
+          </button>
+
+          <div>
+            <h1>Dashboard</h1>
+            <span>Kotlin coroutine lessons.</span>
+          </div>
         </div>
       </ng-template>
 
@@ -31,6 +44,12 @@ import { ToolbarModule } from 'primeng/toolbar';
       border-bottom: 1px solid #e5e7eb;
       border-radius: 0;
       background: #ffffff;
+    }
+
+    .topbar-start {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
     }
 
     h1 {
@@ -52,4 +71,7 @@ import { ToolbarModule } from 'primeng/toolbar';
     }
   `]
 })
-export class TopbarComponent {}
+export class TopbarComponent {
+  @Input() isSidebarOpen = true;
+  @Output() toggleSidebar = new EventEmitter<void>();
+}

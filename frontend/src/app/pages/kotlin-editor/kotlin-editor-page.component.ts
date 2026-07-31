@@ -64,6 +64,7 @@ import {
             styleClass="program-select"
           />
         </div>
+
       </div>
 
       @switch (selectedGroupId) {
@@ -79,7 +80,12 @@ import {
         }
       }
 
-      <app-kotlin-local-runner [code]="selectedProgramCode" />
+      <app-kotlin-local-runner
+        [code]="selectedProgramCode"
+        [runnableCode]="selectedProgramRunnableCode"
+        [showCommonFunctionsToggle]="selectedGroupId === 'sequential-vs-concurrent'"
+        [(showCommonFunctions)]="showCommonFunctions"
+      />
     </section>
   `,
   styles: [`
@@ -140,6 +146,7 @@ export class KotlinEditorPageComponent {
   protected readonly programs: KotlinProgram[] = KOTLIN_PROGRAMS;
   protected selectedGroupId = this.programGroups[0].id;
   protected selectedProgramId = this.filteredPrograms[0].id;
+  protected showCommonFunctions = false;
   protected builderProgramConfig: BuilderProgramConfig = {
     timing: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.timing },
     company: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.company }
@@ -154,7 +161,11 @@ export class KotlinEditorPageComponent {
   }
 
   protected get selectedProgramCode(): string {
-    return buildKotlinProgramCode(this.selectedProgram.id, this.builderProgramConfig);
+    return buildKotlinProgramCode(this.selectedProgram.id, this.builderProgramConfig, this.showCommonFunctions);
+  }
+
+  protected get selectedProgramRunnableCode(): string {
+    return buildKotlinProgramCode(this.selectedProgram.id, this.builderProgramConfig, true);
   }
 
   protected handleGroupChange(): void {

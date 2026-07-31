@@ -1,7 +1,9 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, Input, OnChanges, OnDestroy, SimpleChanges, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
+import { SliderModule } from 'primeng/slider';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { timeout } from 'rxjs';
 
 import { KotlinCodeViewerComponent } from '../kotlin-code-viewer/kotlin-code-viewer.component';
@@ -28,7 +30,7 @@ interface KotlinRunSnapshot {
 @Component({
   selector: 'app-kotlin-local-runner',
   standalone: true,
-  imports: [ButtonModule, FormsModule, KotlinCodeViewerComponent],
+  imports: [ButtonModule, FormsModule, KotlinCodeViewerComponent, SliderModule, ToggleSwitchModule],
   template: `
     <section class="runner">
       <div class="runner-toolbar">
@@ -67,32 +69,100 @@ interface KotlinRunSnapshot {
         </button>
       </div>
 
-      @if (isEditingCode()) {
-        <textarea
-          class="code-editor"
-          spellcheck="false"
-          [(ngModel)]="editableCode"
-          aria-label="Editable Kotlin code">
-        </textarea>
-      } @else {
-        <app-kotlin-code-viewer [code]="editableCode" />
-      }
+      <div class="workspace-controls">
+        <span>Code {{ codePanePercent }}%</span>
+        <p-slider
+          [(ngModel)]="codePanePercent"
+          [min]="25"
+          [max]="75"
+          [step]="5"
+          [disabled]="expandedPane() !== 'none'"
+          styleClass="width-slider"
+          ariaLabel="Adjust code and output width"
+        />
+        <span>Output {{ 100 - codePanePercent }}%</span>
+      </div>
 
-      <section class="output-panel" aria-label="Kotlin runner output">
-        <header>
-          <strong>Output</strong>
-          @if (snapshot(); as runResult) {
-            <span>
-              {{ runResult.durationMs }} ms · {{ runResult.status }}
-              @if (runResult.status !== 'running') {
-                · exit {{ runResult.exitCode ?? runResult.signal ?? 'unknown' }}
+      <div
+        class="runner-workspace"
+        [class.code-expanded]="expandedPane() === 'code'"
+        [class.output-expanded]="expandedPane() === 'output'"
+        [style.--code-pane-percent]="codePanePercent + '%'"
+        [style.--output-pane-percent]="100 - codePanePercent + '%'"
+      >
+        <section class="code-panel" aria-label="Kotlin code">
+          <header class="panel-header">
+            <div>
+              <strong>Kotlin</strong>
+              @if (showCommonFunctionsToggle) {
+                <label class="common-functions-toggle" for="runner-common-functions-toggle">
+                  <span>Common functions</span>
+                  <p-toggleswitch
+                    inputId="runner-common-functions-toggle"
+                    [ngModel]="showCommonFunctions"
+                    (ngModelChange)="showCommonFunctionsChange.emit($event)"
+                    ariaLabel="Show common functions in Kotlin code"
+                    size="small"
+                  />
+                </label>
               }
-            </span>
-          }
-        </header>
+            </div>
 
-        <pre>{{ outputText() }}</pre>
-      </section>
+            <button
+              pButton
+              type="button"
+              [icon]="expandedPane() === 'code' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              [attr.aria-label]="expandedPane() === 'code' ? 'Restore code and output view' : 'Expand Kotlin code'"
+              (click)="toggleExpandedPane('code')">
+            </button>
+          </header>
+
+          <div class="code-surface">
+            @if (isEditingCode()) {
+              <textarea
+                class="code-editor"
+                spellcheck="false"
+                [(ngModel)]="editableCode"
+                aria-label="Editable Kotlin code">
+              </textarea>
+            } @else {
+              <app-kotlin-code-viewer [code]="editableCode" />
+            }
+          </div>
+        </section>
+
+        <section class="output-panel" aria-label="Kotlin runner output">
+          <header class="panel-header">
+            <div>
+              <strong>Output</strong>
+              @if (snapshot(); as runResult) {
+                <span>
+                  {{ runResult.durationMs }} ms · {{ runResult.status }}
+                  @if (runResult.status !== 'running') {
+                    · exit {{ runResult.exitCode ?? runResult.signal ?? 'unknown' }}
+                  }
+                </span>
+              }
+            </div>
+
+            <button
+              pButton
+              type="button"
+              [icon]="expandedPane() === 'output' ? 'pi pi-window-minimize' : 'pi pi-window-maximize'"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              [attr.aria-label]="expandedPane() === 'output' ? 'Restore code and output view' : 'Expand output'"
+              (click)="toggleExpandedPane('output')">
+            </button>
+          </header>
+
+          <pre>{{ outputText() }}</pre>
+        </section>
+      </div>
     </section>
   `,
   styles: [`
@@ -129,18 +199,176 @@ interface KotlinRunSnapshot {
       line-height: 1.6;
     }
 
-    .code-editor {
-      width: 100%;
-      min-height: 34rem;
-      padding: 1rem;
+    .workspace-controls {
+      min-height: 3rem;
+      display: grid;
+      grid-template-columns: auto minmax(12rem, 24rem) auto;
+      align-items: center;
+      justify-content: start;
+      gap: .75rem;
+      padding: .75rem 1rem;
       border: 1px solid #d1d5db;
       border-radius: .5rem;
-      background: #111827;
-      color: #f9fafb;
+      background: #ffffff;
+      color: #4b5563;
+      font-size: .875rem;
+      font-weight: 700;
+    }
+
+    :host ::ng-deep .width-slider {
+      width: 100%;
+    }
+
+    .runner-workspace {
+      --code-pane-percent: 50%;
+      --output-pane-percent: 50%;
+      height: 90vh;
+      display: grid;
+      grid-template-columns: minmax(18rem, var(--code-pane-percent)) minmax(18rem, var(--output-pane-percent));
+      gap: 1rem;
+      min-width: 0;
+    }
+
+    .runner-workspace.code-expanded,
+    .runner-workspace.output-expanded {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .runner-workspace.code-expanded .output-panel,
+    .runner-workspace.output-expanded .code-panel {
+      display: none;
+    }
+
+    .code-panel,
+    .code-editor {
+      min-width: 0;
+    }
+
+    .code-panel,
+    .output-panel {
+      height: 90vh;
+      overflow: hidden;
+      border-radius: .5rem;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .code-panel {
+      background: #eef3f8;
+    }
+
+    .panel-header {
+      min-height: 2.75rem;
+      padding: .35rem .5rem .35rem .875rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      background: #ffffff;
+    }
+
+    .panel-header strong {
+      color: inherit;
+      font-size: .8125rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .panel-header > div {
+      display: flex;
+      align-items: center;
+      gap: .75rem;
+      min-width: 0;
+    }
+
+    .common-functions-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      color: #4b5563;
+      font-size: .8125rem;
+      font-weight: 700;
+      text-transform: none;
+    }
+
+    .code-surface {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer,
+    :host ::ng-deep app-kotlin-code-viewer .code-viewer {
+      height: 100%;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .code-viewer {
+      margin-top: 0;
+      border: 0;
+      border-radius: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .code-toolbar {
+      display: none;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer pre {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: #eef3f8;
+      color: #1f2937;
+      box-shadow: inset 0 0 0 1px #d8e2ee;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-keyword {
+      color: #b45309;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-type,
+    :host ::ng-deep app-kotlin-code-viewer .token-function,
+    :host ::ng-deep app-kotlin-code-viewer .token-operator {
+      color: #1f2937;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-variable {
+      color: #7c3aed;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-string {
+      color: #15803d;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-number {
+      color: #0369a1;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-comment {
+      color: #6b7280;
+    }
+
+    :host ::ng-deep app-kotlin-code-viewer .token-annotation {
+      color: #854d0e;
+    }
+
+    .code-editor {
+      width: 100%;
+      height: 100%;
+      padding: 1rem;
+      border: 0;
+      border-radius: 0;
+      background: #eef3f8;
+      color: #111827;
+      box-shadow: inset 0 0 0 1px #d8e2ee;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       font-size: .875rem;
       line-height: 1.6;
-      resize: vertical;
+      resize: none;
       tab-size: 4;
     }
 
@@ -151,36 +379,25 @@ interface KotlinRunSnapshot {
     }
 
     .output-panel {
-      overflow: hidden;
-      border: 1px solid #d1d5db;
-      border-radius: .5rem;
-      background: #ffffff;
-    }
-
-    .output-panel header {
-      min-height: 2.75rem;
-      padding: .75rem 1rem;
-      border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
+      background: #111827;
     }
 
     .output-panel span {
-      color: #6b7280;
+      color: #d1d5db;
       font-size: .8125rem;
       font-weight: 700;
+      white-space: nowrap;
     }
 
     pre {
       overflow: auto;
-      min-height: 12rem;
-      max-height: 38rem;
+      flex: 1;
+      min-height: 0;
       margin: 0;
       padding: 1rem;
       background: #0f172a;
       color: #e5e7eb;
+      box-shadow: inset 0 0 0 1px #1e293b;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       font-size: .875rem;
       line-height: 1.6;
@@ -189,15 +406,38 @@ interface KotlinRunSnapshot {
 
     @media (max-width: 760px) {
       .runner-toolbar,
-      .output-panel header {
+      .panel-header {
         align-items: stretch;
         flex-direction: column;
+      }
+
+      .workspace-controls {
+        grid-template-columns: 1fr;
+      }
+
+      .runner-workspace {
+        height: auto;
+        grid-template-columns: 1fr;
+      }
+
+      .runner-workspace.code-expanded,
+      .runner-workspace.output-expanded {
+        grid-template-columns: 1fr;
+      }
+
+      .code-panel,
+      .output-panel {
+        height: 90vh;
       }
     }
   `]
 })
 export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) code = '';
+  @Input() runnableCode = '';
+  @Input() showCommonFunctionsToggle = false;
+  @Input() showCommonFunctions = false;
+  @Output() showCommonFunctionsChange = new EventEmitter<boolean>();
 
   private readonly runnerUrl = 'http://127.0.0.1:3001/run-kotlin';
   private readonly runTimeoutMs = 600000;
@@ -206,9 +446,11 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
 
   protected editableCode = '';
   protected readonly isEditingCode = signal(false);
+  protected readonly expandedPane = signal<'none' | 'code' | 'output'>('none');
   protected readonly isRunning = signal(false);
   protected readonly snapshot = signal<KotlinRunSnapshot | undefined>(undefined);
   protected readonly outputText = signal('Runner output will appear here.');
+  protected codePanePercent = 50;
 
   constructor(private readonly http: HttpClient) {}
 
@@ -236,7 +478,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
     this.outputText.set('Starting Kotlin through local JVM runner...');
 
     this.http.post<KotlinRunStartResult>(this.runnerUrl, {
-      code: this.editableCode,
+      code: this.codeToRun,
       timeoutMs: this.runTimeoutMs
     }).pipe(
       timeout(30000)
@@ -287,6 +529,18 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
 
   protected toggleCodeMode(): void {
     this.isEditingCode.update((isEditing) => !isEditing);
+  }
+
+  protected toggleExpandedPane(pane: 'code' | 'output'): void {
+    this.expandedPane.update((expandedPane) => expandedPane === pane ? 'none' : pane);
+  }
+
+  private get codeToRun(): string {
+    if (this.isEditingCode()) {
+      return this.editableCode;
+    }
+
+    return this.runnableCode || this.editableCode;
   }
 
   private pollRun(): void {
