@@ -170,6 +170,76 @@ import {
                         </div>
                       </div>
                     }
+                    @case ('company') {
+                      <div class="company-diagram">
+                        <div class="company-title">
+                          <span>Time graph</span>
+                          <strong>Hover a line to highlight its parent thread chain</strong>
+                        </div>
+
+                        <div
+                          class="thread-chart"
+                          [style.--company-columns]="diagram.columnTemplate"
+                          [style.--company-week-count]="diagram.weeks.length"
+                        >
+                          <div class="company-chart-header">
+                            <span>Thread</span>
+                            <div class="company-week-scale" aria-label="Weeks">
+                              @for (week of diagram.weeks; track week) {
+                                <span [class.major]="week === 1 || week % 6 === 0">{{ week }}</span>
+                              }
+                            </div>
+                          </div>
+
+                          @for (row of diagram.rows; track row.id) {
+                            <div
+                              class="company-chart-row"
+                              [class.level-main]="row.level === 'main'"
+                              [class.level-builder]="row.level === 'builder'"
+                              [class.level-house]="row.level === 'house'"
+                              [class.level-child]="row.level === 'child'"
+                              [class.related]="isCompanyRowHighlighted(row)"
+                              [class.dimmed]="hasCompanyHighlight() && !isCompanyRowHighlighted(row)"
+                            >
+                              <strong>{{ row.label }}</strong>
+                              <div class="company-line-track">
+                                @for (line of row.lines; track line.id) {
+                                  <span
+                                    class="company-life-line"
+                                    [class.main-line]="line.kind === 'main'"
+                                    [class.builder-line]="line.kind === 'builder'"
+                                    [class.house-line]="line.kind === 'house'"
+                                    [class.child-line]="line.kind === 'child'"
+                                    [class.local-line]="line.kind === 'local'"
+                                    [class.related]="isCompanyLineHighlighted(line)"
+                                    [class.dimmed]="hasCompanyHighlight() && !isCompanyLineHighlighted(line)"
+                                    [style.grid-column]="line.start + ' / span ' + line.span"
+                                    [attr.data-title]="line.label"
+                                    [attr.data-detail]="line.detail"
+                                    (mouseenter)="highlightCompanyLine(line)"
+                                    (mouseleave)="clearCompanyHighlight()"
+                                  ></span>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+
+                        <div class="company-legend" aria-label="Thread legend">
+                          @for (item of diagram.legend; track item.label) {
+                            <span
+                              [class.main-line]="item.kind === 'main'"
+                              [class.builder-line]="item.kind === 'builder'"
+                              [class.house-line]="item.kind === 'house'"
+                              [class.child-line]="item.kind === 'child'"
+                              [class.local-line]="item.kind === 'local'"
+                            >
+                              {{ item.label }}
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    }
                   }
                 </section>
               }
@@ -483,6 +553,204 @@ import {
       gap: .75rem;
     }
 
+    .company-diagram {
+      display: grid;
+      gap: .85rem;
+      padding: 1rem;
+    }
+
+    .company-title {
+      display: grid;
+      gap: .2rem;
+    }
+
+    .company-title span {
+      color: #2563eb;
+      font-size: .75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .company-title strong {
+      color: #111827;
+      font-size: 1rem;
+    }
+
+    .thread-chart {
+      display: grid;
+      gap: .22rem;
+      padding: .75rem;
+      border: 1px solid #dbeafe;
+      border-radius: .65rem;
+      background: #ffffff;
+    }
+
+    .company-chart-header,
+    .company-chart-row {
+      display: grid;
+      grid-template-columns: 10rem minmax(0, 1fr);
+      gap: .6rem;
+      align-items: center;
+    }
+
+    .company-chart-header > span,
+    .company-chart-row > strong {
+      min-width: 0;
+      border-radius: .4rem;
+      display: grid;
+      align-items: center;
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .company-chart-header > span {
+      padding: .25rem .5rem;
+      background: #eef2ff;
+      color: #1d4ed8;
+      text-transform: uppercase;
+    }
+
+    .company-chart-row > strong {
+      min-height: 1.45rem;
+      padding: .18rem .5rem;
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    .company-chart-row.level-house > strong {
+      padding-left: .75rem;
+    }
+
+    .company-chart-row.level-child > strong {
+      padding-left: 1.1rem;
+      color: #64748b;
+      font-size: .66rem;
+    }
+
+    .company-chart-row.related > strong {
+      background: #dbeafe;
+      color: #1d4ed8;
+      box-shadow: inset .22rem 0 0 #2563eb;
+    }
+
+    .company-chart-row.dimmed > strong {
+      opacity: .38;
+    }
+
+    .company-week-scale,
+    .company-line-track {
+      min-width: 0;
+      display: grid;
+      grid-template-columns: var(--company-columns);
+      gap: .08rem;
+      align-items: center;
+    }
+
+    .company-week-scale span {
+      min-width: 0;
+      color: #94a3b8;
+      font-size: .55rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .company-week-scale span.major {
+      color: #1d4ed8;
+    }
+
+    .company-line-track {
+      min-height: 1.45rem;
+      position: relative;
+      border-radius: .25rem;
+      background-image: linear-gradient(to right, rgb(226 232 240 / 80%) 1px, transparent 1px);
+      background-size: calc(100% / var(--company-week-count)) 100%;
+    }
+
+    .company-life-line {
+      height: .62rem;
+      border-radius: 999px;
+      position: relative;
+      cursor: default;
+      transition: opacity .15s ease, box-shadow .15s ease, transform .15s ease;
+    }
+
+    .company-life-line.main-line,
+    .company-legend .main-line::before {
+      background: #2563eb;
+    }
+
+    .company-life-line.builder-line,
+    .company-legend .builder-line::before {
+      background: #0f766e;
+    }
+
+    .company-life-line.house-line,
+    .company-legend .house-line::before {
+      background: #64748b;
+    }
+
+    .company-life-line.child-line,
+    .company-legend .child-line::before {
+      background: #0284c7;
+    }
+
+    .company-life-line.local-line,
+    .company-legend .local-line::before {
+      background: #f59e0b;
+    }
+
+    .company-life-line.related {
+      z-index: 3;
+      box-shadow: 0 0 0 2px #111827, 0 .45rem 1rem rgb(15 23 42 / 20%);
+      transform: scaleY(1.45);
+    }
+
+    .company-life-line.dimmed {
+      opacity: .14;
+    }
+
+    .company-life-line:hover::after {
+      content: attr(data-title) ' - ' attr(data-detail);
+      position: absolute;
+      left: 0;
+      bottom: calc(100% + .45rem);
+      z-index: 10;
+      width: max-content;
+      max-width: 20rem;
+      padding: .4rem .55rem;
+      border-radius: .4rem;
+      background: #111827;
+      color: #ffffff;
+      font-size: .72rem;
+      font-weight: 800;
+      line-height: 1.35;
+      box-shadow: 0 .75rem 1.5rem rgb(15 23 42 / 22%);
+      pointer-events: none;
+      white-space: normal;
+    }
+
+    .company-legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: .5rem;
+      color: #475569;
+      font-size: .72rem;
+      font-weight: 800;
+    }
+
+    .company-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+    }
+
+    .company-legend span::before {
+      content: '';
+      width: 1.6rem;
+      height: .35rem;
+      border-radius: 999px;
+    }
+
     .task-list {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
@@ -574,6 +842,12 @@ import {
       .timeline-row span {
         grid-column: auto !important;
       }
+
+      .company-chart-header,
+      .company-chart-row {
+        grid-template-columns: 7.5rem minmax(0, 1fr);
+        gap: .4rem;
+      }
     }
   `]
 })
@@ -583,6 +857,7 @@ export class KotlinEditorPageComponent {
   protected selectedGroupId = this.programGroups[0].id;
   protected selectedProgramId = this.filteredPrograms[0].id;
   protected showCommonFunctions = false;
+  protected activeCompanyLineIds = new Set<string>();
   protected builderProgramConfig: BuilderProgramConfig = {
     timing: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.timing },
     company: { ...DEFAULT_BUILDER_PROGRAM_CONFIG.company }
@@ -621,6 +896,11 @@ export class KotlinEditorPageComponent {
   private get constructionCompanyIntroduction(): ProgramIntroduction {
     const houseCount = this.builderProgramConfig.company.houseCount;
     const builderCount = this.builderProgramConfig.company.builderCount;
+    const maxHouseSlots = Math.max(
+      ...Array.from({ length: builderCount }, (_, index) => this.getAssignedHouses(index + 1, houseCount, builderCount).length),
+      1
+    );
+    const weeks = Array.from({ length: maxHouseSlots * 6 }, (_, index) => index + 1);
 
     return {
       step: 'Step 3: Scale the threaded model',
@@ -636,15 +916,19 @@ export class KotlinEditorPageComponent {
         { label: 'Thread model', duration: `${builderCount} builder ${this.pluralize('thread', builderCount)}` }
       ],
       diagram: {
-        type: 'assignment',
+        type: 'company',
         kicker: 'Thread assignment',
-        title: 'Split houses across builder threads',
-        sourceLabel: `${houseCount} ${this.pluralize('house', houseCount)}`,
-        sourceDetail: 'Configurable contract size',
-        builders: Array.from({ length: builderCount }, (_, index) => ({
-          label: `Builder ${index + 1}`,
-          detail: 'Assigned houses'
-        }))
+        title: 'Thread lifetimes across the company run',
+        columnTemplate: `repeat(${weeks.length}, minmax(0, 1fr))`,
+        weeks,
+        rows: this.buildCompanyRows(houseCount, builderCount),
+        legend: [
+          { label: 'Main thread', kind: 'main' },
+          { label: 'Builder thread', kind: 'builder' },
+          { label: 'buildHouse call', kind: 'house' },
+          { label: 'Child thread', kind: 'child' },
+          { label: 'Local builder work', kind: 'local' }
+        ]
       },
       notices: [
         'The same house-building flow runs inside each builder thread.',
@@ -656,6 +940,160 @@ export class KotlinEditorPageComponent {
 
   private pluralize(label: string, count: number): string {
     return count === 1 ? label : `${label}s`;
+  }
+
+  protected hasCompanyHighlight(): boolean {
+    return this.activeCompanyLineIds.size > 0;
+  }
+
+  protected isCompanyLineHighlighted(line: CompanyLine): boolean {
+    return this.activeCompanyLineIds.has(line.id);
+  }
+
+  protected isCompanyRowHighlighted(row: CompanyRow): boolean {
+    return row.lines.some((line) => this.isCompanyLineHighlighted(line));
+  }
+
+  protected highlightCompanyLine(line: CompanyLine): void {
+    this.activeCompanyLineIds = new Set([line.id, ...line.parentIds]);
+  }
+
+  protected clearCompanyHighlight(): void {
+    this.activeCompanyLineIds = new Set<string>();
+  }
+
+  private buildCompanyRows(houseCount: number, builderCount: number): CompanyRow[] {
+    const houseWeeks = 6;
+    const maxHouseSlots = Math.max(
+      ...Array.from({ length: builderCount }, (_, index) => this.getAssignedHouses(index + 1, houseCount, builderCount).length),
+      1
+    );
+    const totalWeeks = maxHouseSlots * houseWeeks;
+    const rows: CompanyRow[] = [
+      {
+        id: 'main-row',
+        label: 'Main',
+        level: 'main',
+        lines: [
+          {
+            id: 'main',
+            label: 'main thread',
+            detail: `starts ${builderCount} builder ${this.pluralize('thread', builderCount)}, then waits with join()`,
+            kind: 'main',
+            start: 1,
+            span: totalWeeks,
+            parentIds: []
+          }
+        ]
+      }
+    ];
+
+    Array.from({ length: builderCount }, (_, index) => {
+      const builderNumber = index + 1;
+      const builderId = `builder-${builderNumber}`;
+      const assignedHouses = this.getAssignedHouses(builderNumber, houseCount, builderCount);
+      const builderSpan = Math.max(assignedHouses.length, 1) * houseWeeks;
+
+      rows.push({
+        id: `${builderId}-row`,
+        label: `Builder ${builderNumber}`,
+        level: 'builder',
+        lines: [
+          {
+            id: builderId,
+            label: `Builder ${builderNumber} thread`,
+            detail: `${assignedHouses.length} assigned ${this.pluralize('house', assignedHouses.length)}`,
+            kind: 'builder',
+            start: 1,
+            span: builderSpan,
+            parentIds: ['main']
+          }
+        ]
+      });
+
+      assignedHouses.forEach((houseNumber, houseIndex) => {
+        const houseStart = houseIndex * houseWeeks + 1;
+        const houseId = `house-${houseNumber}`;
+        const parentIds = [builderId, 'main'];
+
+        rows.push({
+          id: `${houseId}-row`,
+          label: `H${houseNumber}`,
+          level: 'house',
+          lines: [
+            {
+              id: houseId,
+              label: `buildHouse(H${houseNumber})`,
+              detail: `runs inside Builder ${builderNumber}; owns all child work for H${houseNumber}`,
+              kind: 'house',
+              start: houseStart,
+              span: houseWeeks,
+              parentIds
+            }
+          ]
+        });
+
+        rows.push(
+          this.companyChildRow(houseNumber, 'OW', 'order window thread', 'supplier windows run for 5 weeks', houseStart, 5, [
+            houseId,
+            ...parentIds
+          ]),
+          this.companyChildRow(houseNumber, 'OD', 'order door thread', 'supplier doors run for 5 weeks', houseStart, 5, [
+            houseId,
+            ...parentIds
+          ]),
+          this.companyChildRow(houseNumber, 'LB', 'lay bricks thread', 'brick work runs for 2 weeks', houseStart, 2, [
+            houseId,
+            ...parentIds
+          ]),
+          this.companyChildRow(houseNumber, 'IW', 'install window', 'local builder work after joins', houseStart + 5, 1, [
+            houseId,
+            ...parentIds
+          ], 'local'),
+          this.companyChildRow(houseNumber, 'ID', 'install door', 'local builder work after window install', houseStart + 5, 1, [
+            houseId,
+            ...parentIds
+          ], 'local')
+        );
+      });
+    });
+
+    return rows;
+  }
+
+  private companyChildRow(
+    houseNumber: number,
+    shortName: string,
+    label: string,
+    detail: string,
+    start: number,
+    span: number,
+    parentIds: string[],
+    kind: CompanyLineKind = 'child'
+  ): CompanyRow {
+    const id = `house-${houseNumber}-${shortName.toLowerCase()}`;
+
+    return {
+      id: `${id}-row`,
+      label: `H${houseNumber} ${shortName}`,
+      level: 'child',
+      lines: [
+        {
+          id,
+          label: `H${houseNumber} ${label}`,
+          detail,
+          kind,
+          start,
+          span,
+          parentIds
+        }
+      ]
+    };
+  }
+
+  private getAssignedHouses(builderNumber: number, houseCount: number, builderCount: number): number[] {
+    return Array.from({ length: houseCount }, (_, index) => index + 1)
+      .filter((houseNumber) => (houseNumber - 1) % builderCount === builderNumber - 1);
   }
 
   protected handleGroupChange(): void {
@@ -675,7 +1113,7 @@ interface ProgramIntroduction {
   notices: string[];
 }
 
-type ProgramDiagram = SequenceDiagram | LaneDiagram | AssignmentDiagram;
+type ProgramDiagram = SequenceDiagram | LaneDiagram | AssignmentDiagram | CompanyDiagram;
 
 interface SequenceDiagram {
   type: 'sequence';
@@ -721,6 +1159,38 @@ interface AssignmentDiagram {
     label: string;
     detail: string;
   }>;
+}
+
+interface CompanyDiagram {
+  type: 'company';
+  kicker: string;
+  title: string;
+  columnTemplate: string;
+  weeks: number[];
+  rows: CompanyRow[];
+  legend: Array<{
+    label: string;
+    kind: CompanyLineKind;
+  }>;
+}
+
+interface CompanyRow {
+  id: string;
+  label: string;
+  level: 'main' | 'builder' | 'house' | 'child';
+  lines: CompanyLine[];
+}
+
+type CompanyLineKind = 'main' | 'builder' | 'house' | 'child' | 'local';
+
+interface CompanyLine {
+  id: string;
+  label: string;
+  detail: string;
+  kind: CompanyLineKind;
+  start: number;
+  span: number;
+  parentIds: string[];
 }
 
 const PROGRAM_INTRODUCTIONS: Record<string, ProgramIntroduction> = {
