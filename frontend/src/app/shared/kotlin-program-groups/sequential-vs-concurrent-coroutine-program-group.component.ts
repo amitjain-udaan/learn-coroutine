@@ -9,17 +9,17 @@ import {
 } from '../kotlin-programs/kotlin-programs';
 
 @Component({
-  selector: 'app-sequential-vs-concurrent-program-group',
+  selector: 'app-sequential-vs-concurrent-coroutine-program-group',
   standalone: true,
   imports: [FormsModule, KotlinProgramGroupSettingsComponent],
   template: `
-    <section class="group-content" aria-label="Sequential versus concurrent program group">
+    <section class="group-content" aria-label="Sequential versus concurrent coroutine program group">
       <app-kotlin-program-group-settings
-        groupLabel="Sequential VS Concurrent"
-        ariaLabel="Sequential versus concurrent program settings"
+        groupLabel="Sequential VS Concurrent - Coroutine"
+        ariaLabel="Sequential versus concurrent coroutine program settings"
         [selectedProgram]="selectedProgram"
       >
-        <div class="timing-grid" aria-label="Editable scenario timing">
+        <div class="timing-grid" aria-label="Editable coroutine scenario timing">
           <label>
             <span>1 week is</span>
             <input
@@ -92,41 +92,6 @@ import {
             <small>weeks</small>
           </label>
         </div>
-
-        @if (selectedProgram.id === 'construction-company') {
-          <div class="program-options" aria-label="Construction company options">
-            <div>
-              <span class="option-title">Construction company options</span>
-              <p>These controls only affect the selected company program.</p>
-            </div>
-
-            <div class="timing-grid">
-              <label>
-                <span>Number of houses</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  [ngModel]="programConfig.company.houseCount"
-                  (ngModelChange)="updateCompany('houseCount', $event)"
-                />
-                <small>houses</small>
-              </label>
-
-              <label>
-                <span>Number of builders</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  [ngModel]="programConfig.company.builderCount"
-                  (ngModelChange)="updateCompany('builderCount', $event)"
-                />
-                <small>builders</small>
-              </label>
-            </div>
-          </div>
-        }
       </app-kotlin-program-group-settings>
     </section>
   `,
@@ -136,31 +101,10 @@ import {
       gap: 1rem;
     }
 
-    p {
-      margin: 0;
-      color: #4b5563;
-      line-height: 1.6;
-    }
-
     .timing-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: .75rem;
-    }
-
-    .program-options {
-      display: grid;
-      gap: .75rem;
-      padding-top: .75rem;
-      border-top: 1px solid #99f6e4;
-    }
-
-    .option-title {
-      display: block;
-      margin-bottom: .35rem;
-      color: #0f766e;
-      font-size: .875rem;
-      font-weight: 800;
     }
 
     .timing-grid label {
@@ -210,7 +154,7 @@ import {
     }
   `]
 })
-export class SequentialVsConcurrentProgramGroupComponent {
+export class SequentialVsConcurrentCoroutineProgramGroupComponent {
   @Input({ required: true }) selectedProgram!: KotlinProgram;
   @Input() programConfig: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG;
   @Output() programConfigChange = new EventEmitter<BuilderProgramConfig>();
@@ -223,19 +167,6 @@ export class SequentialVsConcurrentProgramGroupComponent {
       timing: {
         ...this.programConfig.timing,
         [key]: Number.isFinite(numericValue) ? numericValue : 0
-      }
-    });
-  }
-
-  protected updateCompany(key: keyof BuilderProgramConfig['company'], value: number | string): void {
-    const numericValue = Number(value);
-    const normalizedValue = Math.max(1, Math.floor(Number.isFinite(numericValue) ? numericValue : 1));
-
-    this.programConfigChange.emit({
-      ...this.programConfig,
-      company: {
-        ...this.programConfig.company,
-        [key]: normalizedValue
       }
     });
   }

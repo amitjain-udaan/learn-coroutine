@@ -12,6 +12,12 @@ export interface KotlinProgramGroup {
   description: string;
 }
 
+export interface KotlinProgramCodeParts {
+  supportCode: string;
+  lessonCode: string;
+  fullCode: string;
+}
+
 export interface BuilderTimingConfig {
   weekMillis: number;
   windowOrderWeeks: number;
@@ -60,6 +66,11 @@ export const KOTLIN_PROGRAM_GROUPS: KotlinProgramGroup[] = [
     id: 'sequential-vs-concurrent',
     label: 'Sequential VS Concurrent',
     description: 'Programs from the Bob builder scenarios.'
+  },
+  {
+    id: 'sequential-vs-concurrent-coroutine',
+    label: 'Sequential VS Concurrent - Coroutine',
+    description: 'The same Bob builder scenarios expressed with suspend functions and coroutines.'
   }
 ];
 
@@ -379,31 +390,313 @@ ${BUILDER_CODE}
 
 ${CONSTRUCTION_COMPANY_CODE}`;
 
+export const COROUTINE_COMMON_FUNCTIONS_CODE = `import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlin.coroutines.coroutineContext
+
+class CoroutineActivityStore {
+    companion object {
+        private val activeCoroutineNames = mutableSetOf<String>()
+        private var maxActiveCoroutineCount = 0
+
+        @Synchronized
+        fun markActive(name: String) {
+            activeCoroutineNames.add(name)
+
+            if (activeCoroutineNames.size > maxActiveCoroutineCount) {
+                maxActiveCoroutineCount = activeCoroutineNames.size
+            }
+        }
+
+        @Synchronized
+        fun markSuspended(name: String) {
+            activeCoroutineNames.remove(name)
+        }
+
+        @Synchronized
+        fun getActiveCoroutineCount(): Int = activeCoroutineNames.size
+
+        @Synchronized
+        fun getMaxActiveCoroutineCount(): Int = maxActiveCoroutineCount
+    }
+}
+
+suspend fun currentCoroutineName(): String =
+    coroutineContext[CoroutineName]?.name ?: "unnamed"
+
+suspend fun markCoroutineActive() {
+    CoroutineActivityStore.markActive(currentCoroutineName())
+}
+
+suspend fun markCoroutineSuspended() {
+    CoroutineActivityStore.markSuspended(currentCoroutineName())
+}
+
+fun getActiveCoroutineCount(): Int =
+    CoroutineActivityStore.getActiveCoroutineCount()
+
+fun getMaxActiveCoroutineCount(): Int =
+    CoroutineActivityStore.getMaxActiveCoroutineCount()
+
+suspend fun trackedDelay(timeMillis: Long) {
+    markCoroutineSuspended()
+
+    try {
+        delay(timeMillis)
+    } finally {
+        markCoroutineActive()
+    }
+}
+
+suspend fun trackedBlockingSleep(timeMillis: Long) {
+    markCoroutineActive()
+    Thread.sleep(timeMillis)
+}
+
+suspend fun trackedJoinAll(vararg jobs: Job) {
+    markCoroutineSuspended()
+
+    try {
+        jobs.toList().joinAll()
+    } finally {
+        markCoroutineActive()
+    }
+}
+
+suspend fun <T> trackCoroutineWork(block: suspend () -> T): T {
+    markCoroutineActive()
+
+    try {
+        return block()
+    } finally {
+        markCoroutineSuspended()
+    }
+}
+
+suspend fun <T> measureSuspendTime(block: suspend () -> T): Pair<T, Long> {
+    val startedAt = System.currentTimeMillis()
+    val result = block()
+    val finishedAt = System.currentTimeMillis()
+
+    return result to finishedAt - startedAt
+}
+
+suspend fun logCoroutine(message: String) {
+    markCoroutineActive()
+
+    val time = java.time.LocalTime.now().format(
+        java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+    )
+    val coroutineName = currentCoroutineName().padEnd(22)
+    val threadName = Thread.currentThread().name.padEnd(24)
+    val paddedMessage = message.padEnd(80)
+    val activeCount = getActiveCoroutineCount()
+
+    println("$time | $coroutineName | $threadName | active=$activeCount | $paddedMessage")
+}
+
+fun printCoroutineSummary(label: String, elapsedMillis: Long) {
+    println()
+    println("========== $label summary ==========")
+    println("Total time  : $elapsedMillis ms")
+    println("Model       : coroutines")
+    println("Active now  : \${getActiveCoroutineCount()}")
+    println("Max active  : \${getMaxActiveCoroutineCount()}")
+    println("====================================")
+}`;
+
+export function buildCoroutineBuilderCode(config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG): string {
+  return `const val WEEK = ${config.weekMillis}L
+
+val WINDOW_ORDER_TIME = (${config.windowOrderWeeks} * WEEK).toLong()
+val DOOR_ORDER_TIME = (${config.doorOrderWeeks} * WEEK).toLong()
+val BRICK_TIME = (${config.brickWeeks} * WEEK).toLong()
+val INSTALL_WINDOW_TIME = (${config.installWindowWeeks} * WEEK).toLong()
+val INSTALL_DOOR_TIME = (${config.installDoorWeeks} * WEEK).toLong()
+
+class CoroutineBuilder {
+    suspend fun buildHouseSequential(houseName: String) {
+        trackCoroutineWork {
+            logCoroutine("starting $houseName")
+
+            orderWindows()
+            orderDoors()
+            stackBrick()
+            installWindow()
+            installDoor()
+
+            logCoroutine("completed $houseName")
+        }
+    }
+
+    suspend fun buildHouseConcurrent(houseName: String) = coroutineScope {
+        trackCoroutineWork {
+            logCoroutine("starting $houseName")
+
+            val orderWindowsJob = launch(CoroutineName("$houseName-order-windows")) {
+                orderWindows()
+            }
+
+            val orderDoorsJob = launch(CoroutineName("$houseName-order-doors")) {
+                orderDoors()
+            }
+
+            val stackBrickJob = launch(CoroutineName("$houseName-stack-brick")) {
+                stackBrick()
+            }
+
+            trackedJoinAll(orderWindowsJob, orderDoorsJob, stackBrickJob)
+
+            installWindow()
+            installDoor()
+
+            logCoroutine("completed $houseName")
+        }
+    }
+
+    suspend fun orderWindows() {
+        trackCoroutineWork {
+            logCoroutine("ordering windows")
+            trackedDelay(WINDOW_ORDER_TIME)
+            logCoroutine("ordered windows completed")
+        }
+    }
+
+    suspend fun orderDoors() {
+        trackCoroutineWork {
+            logCoroutine("ordering doors")
+            trackedDelay(DOOR_ORDER_TIME)
+            logCoroutine("ordered doors completed")
+        }
+    }
+
+    suspend fun stackBrick() {
+        trackCoroutineWork {
+            logCoroutine("laying brick")
+            trackedBlockingSleep(BRICK_TIME)
+            logCoroutine("stack brick completed")
+        }
+    }
+
+    suspend fun installWindow() {
+        trackCoroutineWork {
+            logCoroutine("installing window")
+            trackedBlockingSleep(INSTALL_WINDOW_TIME)
+            logCoroutine("installed window completed")
+        }
+    }
+
+    suspend fun installDoor() {
+        trackCoroutineWork {
+            logCoroutine("installing door")
+            trackedBlockingSleep(INSTALL_DOOR_TIME)
+            logCoroutine("installed door completed")
+        }
+    }
+}`;
+}
+
+export const COROUTINE_SEQUENTIAL_MAIN_CODE = `fun main() = runBlocking(CoroutineName("main")) {
+    val builder = CoroutineBuilder()
+
+    val (_, elapsedMillis) = measureSuspendTime {
+        builder.buildHouseSequential("coroutine-house")
+    }
+
+    printCoroutineSummary("Sequential coroutine", elapsedMillis)
+}`;
+
+export const COROUTINE_CONCURRENT_MAIN_CODE = `fun main() = runBlocking(CoroutineName("main")) {
+    val builder = CoroutineBuilder()
+
+    val (_, elapsedMillis) = measureSuspendTime {
+        builder.buildHouseConcurrent("coroutine-house")
+    }
+
+    printCoroutineSummary("Concurrent coroutine", elapsedMillis)
+}`;
+
+export const COROUTINE_SEQUENTIAL_PROGRAM_CODE = `${COROUTINE_COMMON_FUNCTIONS_CODE}
+
+${buildCoroutineBuilderCode()}
+
+${COROUTINE_SEQUENTIAL_MAIN_CODE}`;
+
+export const COROUTINE_CONCURRENT_PROGRAM_CODE = `${COROUTINE_COMMON_FUNCTIONS_CODE}
+
+${buildCoroutineBuilderCode()}
+
+${COROUTINE_CONCURRENT_MAIN_CODE}`;
+
 export function buildKotlinProgramCode(
   programId: string,
   config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG,
-  includeCommonFunctions = true
+  includeSupportCode = true
 ): string {
+  const codeParts = buildKotlinProgramCodeParts(programId, config);
+
+  return includeSupportCode ? codeParts.fullCode : codeParts.lessonCode;
+}
+
+export function buildKotlinProgramCodeParts(
+  programId: string,
+  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG
+): KotlinProgramCodeParts {
   const builderCode = buildBuilderCode(config.timing);
-  const buildProgramCode = (programCode: string): string => [
-    includeCommonFunctions ? COMMON_FUNCTIONS_CODE : '',
-    builderCode,
-    programCode
-  ].filter(Boolean).join('\n\n');
+  const buildCodeParts = (supportCode: string, lessonCode: string): KotlinProgramCodeParts => ({
+    supportCode,
+    lessonCode,
+    fullCode: [supportCode, lessonCode].filter(Boolean).join('\n\n')
+  });
 
   if (programId === 'sequential-builder') {
-    return buildProgramCode(SEQUENTIAL_MAIN_CODE);
+    return buildCodeParts(COMMON_FUNCTIONS_CODE, [builderCode, SEQUENTIAL_MAIN_CODE].join('\n\n'));
   }
 
   if (programId === 'concurrent-builder') {
-    return buildProgramCode(CONCURRENT_MAIN_CODE);
+    return buildCodeParts(COMMON_FUNCTIONS_CODE, [builderCode, CONCURRENT_MAIN_CODE].join('\n\n'));
   }
 
   if (programId === 'construction-company') {
-    return buildProgramCode(buildConstructionCompanyCode(config.company));
+    return buildCodeParts(COMMON_FUNCTIONS_CODE, [builderCode, buildConstructionCompanyCode(config.company)].join('\n\n'));
   }
 
-  return KOTLIN_PROGRAMS.find((program) => program.id === programId)?.code ?? KOTLIN_PROGRAMS[0].code;
+  if (programId === 'sequential-coroutine-builder') {
+    return buildCodeParts(COROUTINE_COMMON_FUNCTIONS_CODE, [
+      buildCoroutineBuilderCode(config.timing),
+      COROUTINE_SEQUENTIAL_MAIN_CODE
+    ].join('\n\n'));
+  }
+
+  if (programId === 'concurrent-coroutine-builder') {
+    return buildCodeParts(COROUTINE_COMMON_FUNCTIONS_CODE, [
+      buildCoroutineBuilderCode(config.timing),
+      COROUTINE_CONCURRENT_MAIN_CODE
+    ].join('\n\n'));
+  }
+
+  const fallbackProgram = KOTLIN_PROGRAMS.find((program) => program.id === programId) ?? KOTLIN_PROGRAMS[0];
+
+  return buildCodeParts('', fallbackProgram.code);
+}
+
+export function buildKotlinProgramSupportCode(
+  programId: string,
+  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG
+): string {
+  return buildKotlinProgramCodeParts(programId, config).supportCode;
+}
+
+export function buildKotlinProgramLessonCode(
+  programId: string,
+  config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG
+): string {
+  return buildKotlinProgramCodeParts(programId, config).lessonCode;
 }
 
 export const KOTLIN_PROGRAMS: KotlinProgram[] = [
@@ -436,5 +729,19 @@ export const KOTLIN_PROGRAMS: KotlinProgram[] = [
     label: 'Construction company',
     description: 'Bob hires builders and runs builder threads for a configurable number of houses.',
     code: COMPANY_PROGRAM_CODE
+  },
+  {
+    id: 'sequential-coroutine-builder',
+    groupId: 'sequential-vs-concurrent-coroutine',
+    label: 'Sequential coroutine builder',
+    description: 'Bob keeps the work sequential, but each waiting step is a suspend function using delay().',
+    code: COROUTINE_SEQUENTIAL_PROGRAM_CODE
+  },
+  {
+    id: 'concurrent-coroutine-builder',
+    groupId: 'sequential-vs-concurrent-coroutine',
+    label: 'Concurrent coroutine builder',
+    description: 'Bob overlaps independent work with child coroutines inside coroutineScope.',
+    code: COROUTINE_CONCURRENT_PROGRAM_CODE
   }
 ];

@@ -5,7 +5,9 @@ import { SelectModule } from 'primeng/select';
 import { TagModule } from 'primeng/tag';
 
 import { BasicsProgramGroupComponent } from '../../shared/kotlin-program-groups/basics-program-group.component';
+import { SequentialVsConcurrentCoroutineProgramGroupComponent } from '../../shared/kotlin-program-groups/sequential-vs-concurrent-coroutine-program-group.component';
 import { SequentialVsConcurrentProgramGroupComponent } from '../../shared/kotlin-program-groups/sequential-vs-concurrent-program-group.component';
+import { KotlinCommonFunctionsSectionComponent } from '../../shared/kotlin-common-functions-section/kotlin-common-functions-section.component';
 import { KotlinLocalRunnerComponent } from '../../shared/kotlin-local-runner/kotlin-local-runner.component';
 import {
   BuilderProgramConfig,
@@ -14,7 +16,8 @@ import {
   KOTLIN_PROGRAMS,
   KotlinProgram,
   KotlinProgramGroup,
-  buildKotlinProgramCode
+  buildKotlinProgramCode,
+  buildKotlinProgramSupportCode
 } from '../../shared/kotlin-programs/kotlin-programs';
 
 @Component({
@@ -24,8 +27,10 @@ import {
     AccordionModule,
     BasicsProgramGroupComponent,
     FormsModule,
+    KotlinCommonFunctionsSectionComponent,
     KotlinLocalRunnerComponent,
     SelectModule,
+    SequentialVsConcurrentCoroutineProgramGroupComponent,
     SequentialVsConcurrentProgramGroupComponent,
     TagModule
   ],
@@ -273,12 +278,27 @@ import {
                     (programConfigChange)="builderProgramConfig = $event"
                   />
                 }
+                @case ('sequential-vs-concurrent-coroutine') {
+                  <app-sequential-vs-concurrent-coroutine-program-group
+                    [selectedProgram]="selectedProgram"
+                    [programConfig]="builderProgramConfig"
+                    (programConfigChange)="builderProgramConfig = $event"
+                  />
+                }
+              }
+
+              @if (selectedProgramSupportCode) {
+                <app-kotlin-common-functions-section
+                  [code]="selectedProgramSupportCode"
+                  [title]="selectedSupportSectionTitle"
+                  [description]="selectedSupportSectionDescription"
+                />
               }
 
               <app-kotlin-local-runner
                 [code]="selectedProgramCode"
                 [runnableCode]="selectedProgramRunnableCode"
-                [showCommonFunctionsToggle]="selectedGroupId === 'sequential-vs-concurrent'"
+                [showCommonFunctionsToggle]="!!selectedProgramSupportCode"
                 [(showCommonFunctions)]="showCommonFunctions"
               />
             </section>
@@ -879,6 +899,22 @@ export class KotlinEditorPageComponent {
     return buildKotlinProgramCode(this.selectedProgram.id, this.builderProgramConfig, true);
   }
 
+  protected get selectedProgramSupportCode(): string {
+    return buildKotlinProgramSupportCode(this.selectedProgram.id, this.builderProgramConfig);
+  }
+
+  protected get selectedSupportSectionTitle(): string {
+    return this.selectedGroupId === 'sequential-vs-concurrent-coroutine'
+      ? 'Coroutine support code used by this program'
+      : 'Thread support code used by this program';
+  }
+
+  protected get selectedSupportSectionDescription(): string {
+    return this.selectedGroupId === 'sequential-vs-concurrent-coroutine'
+      ? 'These helpers keep the coroutine examples focused on the scenario. Expand this when you want to inspect coroutine timing, logging, and summary code.'
+      : 'These helpers keep the thread examples focused on the scenario. Expand this when you want to inspect thread tracking, timing, logging, and summary code.';
+  }
+
   protected get selectedIntroduction(): ProgramIntroduction {
     if (this.selectedProgram.id === 'construction-company') {
       return this.constructionCompanyIntroduction;
@@ -1284,6 +1320,96 @@ const PROGRAM_INTRODUCTIONS: Record<string, ProgramIntroduction> = {
       'The code starts work first, then waits with join().',
       'The output can interleave because multiple threads are active.',
       'This is the same overlap idea coroutines will express with lighter tools.'
+    ]
+  },
+  'sequential-coroutine-builder': {
+    step: 'Step 4: Sequential work with suspend functions',
+    title: 'Replace blocking waits with suspendable waits',
+    paragraphs: [
+      'This program keeps the Step 1 execution shape: Bob still does one task after another. Supplier waiting uses delay(), while local physical work still uses Thread.sleep() so it stays active and occupies the thread.',
+      'Sequential suspend code still runs in order, so the total time stays close to the original baseline. The benefit appears only for the supplier waits, where the coroutine can suspend instead of blocking the thread.',
+      'When you run it, the output should still read like one straight story. This is the quiet bridge between ordinary sequential code and concurrent coroutine code.'
+    ],
+    tasks: [
+      { label: 'Order windows', duration: 'delay 5 weeks' },
+      { label: 'Order doors', duration: 'delay 5 weeks' },
+      { label: 'Lay bricks', duration: 'sleep 2 weeks' },
+      { label: 'Install window', duration: 'sleep 1/2 week' },
+      { label: 'Install door', duration: 'sleep 1/2 week' }
+    ],
+    diagram: {
+      type: 'sequence',
+      kicker: 'Coroutine shape',
+      title: 'Suspending does not automatically make work concurrent',
+      nodes: [
+        { icon: 'pi pi-pause-circle', label: 'delay windows', detail: 'Suspend 5 weeks' },
+        { icon: 'pi pi-pause-circle', label: 'delay doors', detail: 'Suspend 5 weeks' },
+        { icon: 'pi pi-home', label: 'lay bricks', detail: 'Block 2 weeks' },
+        { icon: 'pi pi-wrench', label: 'install', detail: 'Block 1 week' }
+      ]
+    },
+    notices: [
+      'Suspend functions can still be composed sequentially.',
+      'delay() suspends supplier waits; Thread.sleep() keeps local work active.',
+      'The control flow is still easy to read because there are no child coroutines yet.'
+    ]
+  },
+  'concurrent-coroutine-builder': {
+    step: 'Step 5: Structured concurrency',
+    title: 'Start child coroutines for the independent work',
+    paragraphs: [
+      'This program keeps the same house and timings, but launches independent work as child coroutines inside coroutineScope. Window ordering, door ordering, and brick work begin together.',
+      'The parent coroutine waits with joinAll(), then installs the window and door after the independent jobs complete. Because coroutineScope owns the child jobs, the concurrent work has a clear lifetime.',
+      'Compare this output with the thread version. The overlap is familiar, but the structure is lighter and the relationship between parent and child work is explicit in the code.'
+    ],
+    tasks: [
+      { label: 'Parent scope', duration: 'coroutineScope' },
+      { label: 'Child jobs', duration: '3 launch calls' },
+      { label: 'Wait point', duration: 'joinAll()' },
+      { label: 'Install work', duration: 'after children' }
+    ],
+    diagram: {
+      type: 'lanes',
+      kicker: 'Coroutine shape',
+      title: 'Child coroutines overlap inside one parent scope',
+      lanes: [
+        {
+          label: 'Child job 1',
+          items: [
+            { label: 'Order windows', detail: 'delay 5 weeks', columnStart: 1, columnSpan: 2 }
+          ]
+        },
+        {
+          label: 'Child job 2',
+          items: [
+            { label: 'Order doors', detail: 'delay 5 weeks', columnStart: 1, columnSpan: 2 }
+          ]
+        },
+        {
+          label: 'Child job 3',
+          items: [
+            { label: 'Lay bricks', detail: 'sleep 2 weeks', columnStart: 1, columnSpan: 1 }
+          ]
+        },
+        {
+          label: 'Parent',
+          items: [
+            { label: 'joinAll()', detail: 'wait for children', columnStart: 1, columnSpan: 2 },
+            { label: 'Install window', detail: 'sleep 1/2 week', columnStart: 3, columnSpan: 1 },
+            { label: 'Install door', detail: 'sleep 1/2 week', columnStart: 4, columnSpan: 1 }
+          ]
+        }
+      ],
+      timeline: [
+        { label: 'Scope starts', detail: 'launch child coroutines', columnStart: 2, columnSpan: 1, highlight: true },
+        { label: 'Scope waits', detail: 'joinAll keeps parent suspended', columnStart: 3, columnSpan: 1 },
+        { label: 'Scope finishes', detail: 'install after children complete', columnStart: 4, columnSpan: 2, highlight: true }
+      ]
+    },
+    notices: [
+      'Concurrency starts when the program launches child coroutines.',
+      'coroutineScope keeps the child jobs attached to the parent operation.',
+      'Only delay() suspends coroutine work; Thread.sleep() keeps the coroutine active and blocks the thread.'
     ]
   }
 };

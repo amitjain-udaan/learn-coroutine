@@ -96,7 +96,7 @@ interface KotlinRunSnapshot {
               <strong>Kotlin</strong>
               @if (showCommonFunctionsToggle) {
                 <label class="common-functions-toggle" for="runner-common-functions-toggle">
-                  <span>Common functions</span>
+                  <span>Support code</span>
                   <p-toggleswitch
                     inputId="runner-common-functions-toggle"
                     [ngModel]="showCommonFunctions"

@@ -10,15 +10,12 @@ import { KotlinCodeViewerComponent } from '../kotlin-code-viewer/kotlin-code-vie
   imports: [AccordionModule, CardModule, KotlinCodeViewerComponent],
   template: `
     <p-card>
-      <h3>Common functions used in this section</h3>
-      <p>
-        These helpers keep the examples focused on the scenario. Expand this when you want to inspect
-        the shared thread tracking, timing, logging, and summary code.
-      </p>
+      <h3>{{ title }}</h3>
+      <p>{{ description }}</p>
 
       <p-accordion value="none">
         <p-accordion-panel value="common-functions">
-          <p-accordion-header>Common Kotlin helpers</p-accordion-header>
+          <p-accordion-header>{{ panelTitle }}</p-accordion-header>
           <p-accordion-content>
             <app-kotlin-code-viewer [code]="code" />
           </p-accordion-content>
@@ -51,4 +48,7 @@ import { KotlinCodeViewerComponent } from '../kotlin-code-viewer/kotlin-code-vie
 })
 export class KotlinCommonFunctionsSectionComponent {
   @Input({ required: true }) code = '';
+  @Input() title = 'Support code used by this program';
+  @Input() description = 'These helpers keep the lesson code focused on the scenario. Expand this when you want to inspect the shared Kotlin support code.';
+  @Input() panelTitle = 'Kotlin support code';
 }
