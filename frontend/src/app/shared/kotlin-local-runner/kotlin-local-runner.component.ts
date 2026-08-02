@@ -13,9 +13,12 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
+import { ChartModule } from 'primeng/chart';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { timeout } from 'rxjs';
+import 'chart.js/auto';
+import type { ChartData, ChartDataset, ChartOptions } from 'chart.js';
 
 interface KotlinRunStartResult {
   runId: string;
@@ -36,10 +39,32 @@ interface KotlinRunSnapshot {
   error?: string;
 }
 
+type TimelineStatus = 'QUEUED' | 'RUNNING' | 'YIELDING' | 'FINISHED';
+type FloatingBarPoint = [number, number] | null;
+
+interface TimelineEvent {
+  group: string;
+  startMillis: number;
+  durationMillis: number;
+  endMillis: number;
+  thread: string;
+  coroutine: string;
+  status: TimelineStatus;
+  state: string;
+}
+
+interface TimelineChart {
+  title: string;
+  totalMillis: number;
+  height: string;
+  data: ChartData<'bar', FloatingBarPoint[], string>;
+  options: ChartOptions<'bar'>;
+}
+
 @Component({
   selector: 'app-kotlin-local-runner',
   standalone: true,
-  imports: [ButtonModule, FormsModule, SliderModule, ToggleSwitchModule],
+  imports: [ButtonModule, ChartModule, FormsModule, SliderModule, ToggleSwitchModule],
   template: `
     <section class="runner">
       <div class="runner-toolbar">
@@ -197,9 +222,30 @@ interface KotlinRunSnapshot {
             </div>
           </header>
 
-          <pre [style.--output-font-size.px]="outputFontSizePx">{{ outputText() }}</pre>
+          <div class="output-content">
+            <pre [style.--output-font-size.px]="outputFontSizePx">{{ outputText() }}</pre>
+          </div>
         </section>
       </div>
+
+      @if (timelineCharts().length > 0) {
+        <div class="timeline-charts">
+          @for (chart of timelineCharts(); track chart.title) {
+            <section class="timeline-chart">
+              <header>
+                <strong>{{ chart.title }}</strong>
+                <span>{{ chart.totalMillis }} ms</span>
+              </header>
+              <p-chart
+                type="bar"
+                [data]="chart.data"
+                [options]="chart.options"
+                [height]="chart.height"
+              />
+            </section>
+          }
+        </div>
+      }
     </section>
   `,
   styles: [`
@@ -501,19 +547,63 @@ interface KotlinRunSnapshot {
       white-space: nowrap;
     }
 
-    pre {
-      overflow: auto;
+    .output-content {
       flex: 1;
+      min-height: 0;
+      overflow: auto;
+      background: #0f172a;
+      box-shadow: inset 0 0 0 1px #1e293b;
+    }
+
+    .output-content pre {
+      overflow: auto;
       min-height: 0;
       margin: 0;
       padding: 1rem;
-      background: #0f172a;
+      background: transparent;
       color: #e5e7eb;
-      box-shadow: inset 0 0 0 1px #1e293b;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       font-size: var(--output-font-size, .875rem);
       line-height: 1.6;
       white-space: pre;
+    }
+
+    .timeline-charts {
+      display: grid;
+      gap: 1rem;
+      padding: 0;
+      background: #f8fafc;
+    }
+
+    .timeline-chart {
+      overflow: hidden;
+      border: 1px solid #d8e2ee;
+      border-radius: .5rem;
+      background: #ffffff;
+    }
+
+    .timeline-chart header {
+      min-height: 2.5rem;
+      padding: .5rem .75rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      color: #334155;
+    }
+
+    .timeline-chart header strong {
+      font-size: .8125rem;
+      font-weight: 800;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .timeline-chart header span {
+      color: #64748b;
+      font-size: .8125rem;
+      font-weight: 700;
     }
 
     @media (max-width: 760px) {
@@ -554,6 +644,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
 
   private readonly runnerUrl = 'http://127.0.0.1:3001/run-kotlin';
   private readonly runTimeoutMs = 600000;
+  private readonly refreshIntervalMs = 3000;
   private activeRunId: string | undefined;
   private pollTimer: number | undefined;
   private baseCode = '';
@@ -565,6 +656,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   protected readonly isRunning = signal(false);
   protected readonly snapshot = signal<KotlinRunSnapshot | undefined>(undefined);
   protected readonly outputText = signal('Runner output will appear here.');
+  protected readonly timelineCharts = signal<TimelineChart[]>([]);
   protected codePanePercent = 50;
   protected codeFontSizePx = 12;
   protected outputFontSizePx = 12;
@@ -619,6 +711,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
       this.isRunning.set(false);
       this.snapshot.set(undefined);
       this.outputText.set('Runner output will appear here.');
+      this.timelineCharts.set([]);
     }
   }
 
@@ -632,6 +725,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
     this.activeRunId = undefined;
     this.snapshot.set(undefined);
     this.outputText.set('Starting Kotlin through local JVM runner...');
+    this.timelineCharts.set([]);
 
     this.http.post<KotlinRunStartResult>(this.runnerUrl, {
       code: this.codeToRun,
@@ -643,10 +737,11 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
         this.activeRunId = result.runId;
         this.outputText.set('Run started. Waiting for output...');
         this.pollRun();
-        this.pollTimer = window.setInterval(() => this.pollRun(), 1000);
+        this.pollTimer = window.setInterval(() => this.pollRun(), this.refreshIntervalMs);
       },
       error: (error) => {
         this.snapshot.set(undefined);
+        this.timelineCharts.set([]);
         this.outputText.set([
           'Could not reach the local Kotlin runner.',
           '',
@@ -679,6 +774,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
       error: () => {
         this.clearPolling();
         this.isRunning.set(false);
+        this.timelineCharts.set([]);
       }
     });
   }
@@ -749,6 +845,9 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
     if (snapshot.status !== 'running') {
       this.clearPolling();
       this.isRunning.set(false);
+      this.timelineCharts.set(this.parseTimelineCharts(snapshot.stdout));
+    } else {
+      this.timelineCharts.set([]);
     }
   }
 
@@ -779,6 +878,191 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
     }
 
     return lines.join('\n\n') || 'Program finished with no output.';
+  }
+
+  private parseTimelineCharts(output: string): TimelineChart[] {
+    const threadEvents = this.parseHistorySection(output, 'Tracked thread history');
+    const coroutineEvents = this.parseHistorySection(output, 'Tracked coroutine history');
+    const charts: TimelineChart[] = [];
+
+    if (threadEvents.length > 0) {
+      charts.push(this.buildTimelineChart('Thread Timeline', threadEvents));
+    }
+
+    if (coroutineEvents.length > 0) {
+      charts.push(this.buildTimelineChart('Coroutine Timeline', coroutineEvents));
+    }
+
+    return charts;
+  }
+
+  private parseHistorySection(output: string, sectionTitle: string): TimelineEvent[] {
+    const events: TimelineEvent[] = [];
+    const lines = output.split(/\r?\n/);
+    let isInSection = false;
+    let currentGroup = '';
+
+    for (const line of lines) {
+      if (line.trim() === sectionTitle) {
+        isInSection = true;
+        currentGroup = '';
+        continue;
+      }
+
+      if (isInSection && line.trim().startsWith('Tracked ') && line.trim() !== sectionTitle) {
+        break;
+      }
+
+      if (!isInSection) {
+        continue;
+      }
+
+      const groupMatch = line.match(/^(Thread|Coroutine):\s+(.+)$/);
+
+      if (groupMatch) {
+        currentGroup = groupMatch[2].trim();
+        continue;
+      }
+
+      const event = this.parseHistoryEvent(line, currentGroup);
+
+      if (event) {
+        events.push(event);
+      }
+    }
+
+    return events;
+  }
+
+  private parseHistoryEvent(line: string, group: string): TimelineEvent | undefined {
+    if (!group || !line.startsWith('  ')) {
+      return undefined;
+    }
+
+    const parts = line.trim().split(' | ');
+
+    if (parts.length < 7 || !parts[1].startsWith('start=') || !parts[2].startsWith('duration=')) {
+      return undefined;
+    }
+
+    const startMillis = Number.parseInt(parts[1].replace('start=', '').replace('ms', ''), 10);
+    const durationMillis = Number.parseInt(parts[2].replace('duration=', '').replace('ms', ''), 10);
+    const status = parts[5] as TimelineStatus;
+
+    if (!Number.isFinite(startMillis) || !Number.isFinite(durationMillis) || !this.isTimelineStatus(status)) {
+      return undefined;
+    }
+
+    return {
+      group,
+      startMillis,
+      durationMillis,
+      endMillis: startMillis + durationMillis,
+      thread: parts[3],
+      coroutine: parts[4],
+      status,
+      state: parts.slice(6).join(' | ')
+    };
+  }
+
+  private buildTimelineChart(title: string, events: TimelineEvent[]): TimelineChart {
+    const labels = Array.from(new Set(events.map((event) => event.group)));
+    const totalMillis = Math.max(
+      1,
+      ...events.map((event) => event.endMillis)
+    );
+    const datasets = events.map((event): ChartDataset<'bar', FloatingBarPoint[]> => ({
+      label: event.status,
+      data: labels.map((label) => label === event.group ? [event.startMillis, Math.max(event.endMillis, event.startMillis + 1)] : null),
+      backgroundColor: this.statusColor(event.status),
+      borderColor: this.statusBorderColor(event.status),
+      borderWidth: 1,
+      borderSkipped: false,
+      borderRadius: 4,
+      barPercentage: 0.72,
+      categoryPercentage: 0.82
+    }));
+
+    return {
+      title,
+      totalMillis,
+      height: `${Math.max(220, labels.length * 42 + 92)}px`,
+      data: {
+        labels,
+        datasets
+      },
+      options: {
+        indexAxis: 'y',
+        maintainAspectRatio: false,
+        responsive: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const event = events[context.datasetIndex];
+
+                return `${event.status} ${event.startMillis}-${event.endMillis}ms | ${event.thread} | ${event.coroutine}`;
+              },
+              afterLabel: (context) => events[context.datasetIndex].state
+            }
+          }
+        },
+        scales: {
+          x: {
+            min: 0,
+            max: totalMillis,
+            title: {
+              display: true,
+              text: 'milliseconds'
+            },
+            grid: {
+              color: '#e2e8f0'
+            },
+            ticks: {
+              color: '#475569'
+            }
+          },
+          y: {
+            stacked: true,
+            grid: {
+              display: false
+            },
+            ticks: {
+              color: '#334155'
+            }
+          }
+        }
+      }
+    };
+  }
+
+  private isTimelineStatus(status: string): status is TimelineStatus {
+    return status === 'QUEUED' || status === 'RUNNING' || status === 'YIELDING' || status === 'FINISHED';
+  }
+
+  private statusColor(status: TimelineStatus): string {
+    const colors: Record<TimelineStatus, string> = {
+      QUEUED: '#93c5fd',
+      RUNNING: '#34d399',
+      YIELDING: '#fbbf24',
+      FINISHED: '#a78bfa'
+    };
+
+    return colors[status];
+  }
+
+  private statusBorderColor(status: TimelineStatus): string {
+    const colors: Record<TimelineStatus, string> = {
+      QUEUED: '#2563eb',
+      RUNNING: '#059669',
+      YIELDING: '#d97706',
+      FINISHED: '#7c3aed'
+    };
+
+    return colors[status];
   }
 
   private clearPolling(): void {

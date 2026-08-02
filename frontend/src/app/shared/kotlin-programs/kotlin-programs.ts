@@ -906,7 +906,7 @@ data class HistoryItem(
     fun format(): String {
         val stepElapsedTime = "\${elapsedTime ?: 0}ms"
 
-        return "$time | $stepElapsedTime | $thread | $coroutine | $coroutineStatus | $state"
+        return "$time | start=\${occurredAtMillis}ms | duration=$stepElapsedTime | $thread | $coroutine | $coroutineStatus | $state"
     }
 }
 

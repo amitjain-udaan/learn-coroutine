@@ -38,6 +38,7 @@
 ## UI Rules
 
 - Use PrimeNG components for controls, menus, overlays, tables, forms, buttons, and layout primitives where available.
+- Use PrimeNG Chart with Chart.js for frontend timeline charts and other charting needs.
 - Do not hand-roll UI controls when PrimeNG already provides an appropriate component.
 - Use PrimeIcons for iconography.
 - Keep styling consistent, restrained, and application-focused.
