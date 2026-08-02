@@ -1,12 +1,21 @@
 import { HttpClient } from '@angular/common/http';
-import { Component, EventEmitter, Input, OnChanges, OnDestroy, Output, SimpleChanges, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+  ViewChild,
+  signal
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ButtonModule } from 'primeng/button';
 import { SliderModule } from 'primeng/slider';
 import { ToggleSwitchModule } from 'primeng/toggleswitch';
 import { timeout } from 'rxjs';
-
-import { KotlinCodeViewerComponent } from '../kotlin-code-viewer/kotlin-code-viewer.component';
 
 interface KotlinRunStartResult {
   runId: string;
@@ -30,7 +39,7 @@ interface KotlinRunSnapshot {
 @Component({
   selector: 'app-kotlin-local-runner',
   standalone: true,
-  imports: [ButtonModule, FormsModule, KotlinCodeViewerComponent, SliderModule, ToggleSwitchModule],
+  imports: [ButtonModule, FormsModule, SliderModule, ToggleSwitchModule],
   template: `
     <section class="runner">
       <div class="runner-toolbar">
@@ -59,14 +68,6 @@ interface KotlinRunSnapshot {
           (click)="stopRun()">
         </button>
 
-        <button
-          pButton
-          type="button"
-          [icon]="isEditingCode() ? 'pi pi-eye' : 'pi pi-pencil'"
-          [label]="isEditingCode() ? 'View' : 'Edit'"
-          severity="secondary"
-          (click)="toggleCodeMode()">
-        </button>
       </div>
 
       <div class="workspace-controls">
@@ -135,17 +136,23 @@ interface KotlinRunSnapshot {
             </div>
           </header>
 
-          <div class="code-surface" [style.--code-font-size.px]="codeFontSizePx">
-            @if (isEditingCode()) {
-              <textarea
-                class="code-editor"
-                spellcheck="false"
-                [(ngModel)]="editableCode"
-                aria-label="Editable Kotlin code">
-              </textarea>
-            } @else {
-              <app-kotlin-code-viewer [code]="editableCode" />
-            }
+          <div
+            class="code-surface"
+            [style.--code-font-size.px]="codeFontSizePx"
+          >
+            <pre
+              #highlightedCode
+              class="code-highlight"
+              aria-hidden="true"
+            ><code [innerHTML]="highlightedEditableCode"></code></pre>
+            <textarea
+              class="code-editor"
+              spellcheck="false"
+              [ngModel]="editableCode"
+              (ngModelChange)="updateEditableCode($event)"
+              (scroll)="syncCodeScroll($event)"
+              aria-label="Editable Kotlin code">
+            </textarea>
           </div>
         </section>
 
@@ -285,6 +292,7 @@ interface KotlinRunSnapshot {
     }
 
     .code-panel {
+      border: 1px solid #d8e2ee;
       background: #eef3f8;
     }
 
@@ -355,89 +363,131 @@ interface KotlinRunSnapshot {
       text-transform: none;
     }
 
+    .code-panel .panel-header {
+      border-bottom-color: #d8e2ee;
+      background: #f8fafc;
+    }
+
+    .code-panel .panel-header strong,
+    .code-panel .common-functions-toggle,
+    .code-panel .font-size-control {
+      color: #334155;
+    }
+
+    .code-panel .font-size-control input {
+      border-color: #cbd5e1;
+      background: #ffffff;
+      color: #111827;
+    }
+
+    .code-panel .font-size-control input:focus {
+      border-color: #2563eb;
+      outline: 2px solid #bfdbfe;
+    }
+
+    :host ::ng-deep .code-panel .p-button {
+      color: #334155;
+    }
+
+    :host ::ng-deep .code-panel .p-button:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+
     .code-surface {
+      position: relative;
       flex: 1;
       min-height: 0;
       overflow: hidden;
     }
 
-    :host ::ng-deep app-kotlin-code-viewer,
-    :host ::ng-deep app-kotlin-code-viewer .code-viewer {
-      height: 100%;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .code-viewer {
-      margin-top: 0;
-      border: 0;
-      border-radius: 0;
-      display: flex;
-      flex-direction: column;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .code-toolbar {
-      display: none;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer pre {
-      flex: 1;
-      min-height: 0;
-      overflow: auto;
-      background: #eef3f8;
-      color: #1f2937;
-      box-shadow: inset 0 0 0 1px #d8e2ee;
-      font-size: var(--code-font-size, .875rem);
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-keyword {
-      color: #b45309;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-type,
-    :host ::ng-deep app-kotlin-code-viewer .token-function,
-    :host ::ng-deep app-kotlin-code-viewer .token-operator {
-      color: #1f2937;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-variable {
-      color: #7c3aed;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-string {
-      color: #15803d;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-number {
-      color: #0369a1;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-comment {
-      color: #6b7280;
-    }
-
-    :host ::ng-deep app-kotlin-code-viewer .token-annotation {
-      color: #854d0e;
-    }
-
+    .code-highlight,
     .code-editor {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
       padding: 1rem;
       border: 0;
       border-radius: 0;
-      background: #eef3f8;
-      color: #111827;
-      box-shadow: inset 0 0 0 1px #d8e2ee;
+      background:
+        linear-gradient(90deg, rgb(37 99 235 / 10%) 0 3px, transparent 3px),
+        #eef3f8;
+      color: #1f2937;
+      box-shadow: none;
+      caret-color: #111827;
       font-family: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
       font-size: var(--code-font-size, .875rem);
-      line-height: 1.6;
-      resize: none;
+      line-height: 1.65;
       tab-size: 4;
+      white-space: pre;
+    }
+
+    .code-highlight {
+      margin: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .code-highlight code {
+      color: #1f2937;
+    }
+
+    .code-editor {
+      overflow: auto;
+      background: transparent;
+      color: transparent;
+      resize: none;
+      -webkit-text-fill-color: transparent;
     }
 
     .code-editor:focus {
-      border-color: #2563eb;
       outline: 2px solid #bfdbfe;
-      outline-offset: 1px;
+      outline-offset: -2px;
+    }
+
+    .code-editor::selection {
+      background: rgb(147 197 253 / 45%);
+      color: #111827;
+    }
+
+    :host ::ng-deep .token-keyword {
+      color: #b45309;
+      font-weight: 700;
+    }
+
+    :host ::ng-deep .token-type {
+      color: #7c3aed;
+    }
+
+    :host ::ng-deep .token-function {
+      color: #1f2937;
+      font-weight: 700;
+    }
+
+    :host ::ng-deep .token-variable {
+      color: #4c1d95;
+    }
+
+    :host ::ng-deep .token-string {
+      color: #15803d;
+    }
+
+    :host ::ng-deep .token-number {
+      color: #0369a1;
+    }
+
+    :host ::ng-deep .token-comment {
+      color: #6b7280;
+      font-style: italic;
+    }
+
+    :host ::ng-deep .token-annotation {
+      color: #854d0e;
+    }
+
+    :host ::ng-deep .token-operator {
+      color: #1f2937;
     }
 
     .output-panel {
@@ -500,14 +550,17 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   @Input() showCommonFunctionsToggle = false;
   @Input() showCommonFunctions = false;
   @Output() showCommonFunctionsChange = new EventEmitter<boolean>();
+  @ViewChild('highlightedCode') private highlightedCode?: ElementRef<HTMLPreElement>;
 
   private readonly runnerUrl = 'http://127.0.0.1:3001/run-kotlin';
   private readonly runTimeoutMs = 600000;
   private activeRunId: string | undefined;
   private pollTimer: number | undefined;
+  private baseCode = '';
+  private baseRunnableCode = '';
 
   protected editableCode = '';
-  protected readonly isEditingCode = signal(false);
+  protected highlightedEditableCode = '';
   protected readonly expandedPane = signal<'none' | 'code' | 'output'>('none');
   protected readonly isRunning = signal(false);
   protected readonly snapshot = signal<KotlinRunSnapshot | undefined>(undefined);
@@ -515,15 +568,54 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   protected codePanePercent = 50;
   protected codeFontSizePx = 12;
   protected outputFontSizePx = 12;
+  private readonly keywords = new Set([
+    'as',
+    'break',
+    'catch',
+    'class',
+    'companion',
+    'continue',
+    'do',
+    'else',
+    'false',
+    'finally',
+    'for',
+    'fun',
+    'if',
+    'import',
+    'in',
+    'interface',
+    'is',
+    'null',
+    'object',
+    'package',
+    'private',
+    'protected',
+    'public',
+    'return',
+    'suspend',
+    'throw',
+    'true',
+    'try',
+    'typealias',
+    'val',
+    'var',
+    'when',
+    'while'
+  ]);
 
   constructor(private readonly http: HttpClient) {}
 
   ngOnChanges(changes: SimpleChanges): void {
+    if (changes['code'] || changes['runnableCode']) {
+      this.baseCode = this.code;
+      this.baseRunnableCode = this.runnableCode;
+    }
+
     if (changes['code']) {
-      this.editableCode = this.code;
+      this.updateEditableCode(this.code);
       this.clearPolling();
       this.activeRunId = undefined;
-      this.isEditingCode.set(false);
       this.isRunning.set(false);
       this.snapshot.set(undefined);
       this.outputText.set('Runner output will appear here.');
@@ -591,8 +683,21 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
     });
   }
 
-  protected toggleCodeMode(): void {
-    this.isEditingCode.update((isEditing) => !isEditing);
+  protected updateEditableCode(code: string): void {
+    this.editableCode = code;
+    this.highlightedEditableCode = this.highlightKotlin(code);
+  }
+
+  protected syncCodeScroll(event: Event): void {
+    const textArea = event.target as HTMLTextAreaElement;
+    const highlightedCode = this.highlightedCode?.nativeElement;
+
+    if (!highlightedCode) {
+      return;
+    }
+
+    highlightedCode.scrollTop = textArea.scrollTop;
+    highlightedCode.scrollLeft = textArea.scrollLeft;
   }
 
   protected toggleExpandedPane(pane: 'code' | 'output'): void {
@@ -600,11 +705,17 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
   }
 
   private get codeToRun(): string {
-    if (this.isEditingCode()) {
+    if (!this.baseRunnableCode || this.baseRunnableCode === this.baseCode) {
       return this.editableCode;
     }
 
-    return this.runnableCode || this.editableCode;
+    if (this.baseRunnableCode.endsWith(this.baseCode)) {
+      const supportCode = this.baseRunnableCode.slice(0, -this.baseCode.length);
+
+      return `${supportCode}${this.editableCode}`;
+    }
+
+    return this.editableCode;
   }
 
   private pollRun(): void {
@@ -677,5 +788,76 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
 
     window.clearInterval(this.pollTimer);
     this.pollTimer = undefined;
+  }
+
+  private highlightKotlin(code: string): string {
+    const tokenPattern = /("""[\s\S]*?"""|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])'|\/\/.*|\/\*[\s\S]*?\*\/|@[A-Za-z_]\w*|\b\d+(?:\.\d+)?\b|\b[A-Za-z_]\w*\b|[{}()[\].,;:+\-*/%=!<>?&|]+)/g;
+    let highlighted = '';
+    let cursor = 0;
+
+    for (const match of code.matchAll(tokenPattern)) {
+      const token = match[0];
+      const index = match.index ?? 0;
+
+      highlighted += this.escapeHtml(code.slice(cursor, index));
+      highlighted += this.renderToken(token, code.slice(index + token.length));
+      cursor = index + token.length;
+    }
+
+    highlighted += this.escapeHtml(code.slice(cursor));
+    return highlighted;
+  }
+
+  private renderToken(token: string, remainingCode: string): string {
+    const escapedToken = this.escapeHtml(token);
+
+    if (token.startsWith('//') || token.startsWith('/*')) {
+      return this.wrapToken(escapedToken, 'comment');
+    }
+
+    if (token.startsWith('"') || token.startsWith("'")) {
+      return this.wrapToken(escapedToken, 'string');
+    }
+
+    if (token.startsWith('@')) {
+      return this.wrapToken(escapedToken, 'annotation');
+    }
+
+    if (/^\d/.test(token)) {
+      return this.wrapToken(escapedToken, 'number');
+    }
+
+    if (this.keywords.has(token)) {
+      return this.wrapToken(escapedToken, 'keyword');
+    }
+
+    if (/^[A-Z]/.test(token)) {
+      return this.wrapToken(escapedToken, 'type');
+    }
+
+    if (/^[A-Za-z_]\w*$/.test(token) && remainingCode.trimStart().startsWith('(')) {
+      return this.wrapToken(escapedToken, 'function');
+    }
+
+    if (/^[{}()[\].,;:+\-*/%=!<>?&|]+$/.test(token)) {
+      return this.wrapToken(escapedToken, 'operator');
+    }
+
+    if (/^[a-z_]\w*$/.test(token)) {
+      return this.wrapToken(escapedToken, 'variable');
+    }
+
+    return escapedToken;
+  }
+
+  private wrapToken(token: string, className: string): string {
+    return `<span class="token-${className}">${token}</span>`;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
   }
 }

@@ -633,6 +633,291 @@ ${buildCoroutineBuilderCode()}
 
 ${COROUTINE_CONCURRENT_MAIN_CODE}`;
 
+export function buildStructuredConcurrencyTrackingProgramCode(
+  config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG
+): string {
+  return `import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import kotlin.coroutines.CoroutineContext
+
+const val WEEK = ${config.weekMillis}L
+val WINDOW_ORDER_TIME = (${config.windowOrderWeeks} * WEEK).toLong()
+val DOOR_ORDER_TIME = (${config.doorOrderWeeks} * WEEK).toLong()
+val BRICK_TIME = (${config.brickWeeks} * WEEK).toLong()
+val INSTALL_WINDOW_TIME = (${config.installWindowWeeks} * WEEK).toLong()
+val INSTALL_DOOR_TIME = (${config.installDoorWeeks} * WEEK).toLong()
+
+class CoroutineBuilder {
+    suspend fun buildHouseConcurrent(houseName: String) = coroutineScope {
+        val orderWindowsJob = launch(CoroutineName("$houseName-order-windows")) {
+            orderWindows()
+        }
+
+        val orderDoorsJob = launch(CoroutineName("$houseName-order-doors")) {
+            orderDoors()
+        }
+
+        val layBrickJob = launch(CoroutineName("$houseName-lay-brick")) {
+            layBrick()
+        }
+
+        orderWindowsJob.join()
+        orderDoorsJob.join()
+        layBrickJob.join()
+        installDoor()
+        installWindow()
+    }
+
+    suspend fun orderWindows() {
+        delay(WINDOW_ORDER_TIME)
+    }
+
+    suspend fun orderDoors() {
+        delay(DOOR_ORDER_TIME)
+    }
+
+    suspend fun layBrick() {
+        Thread.sleep(BRICK_TIME)
+    }
+
+    suspend fun installWindow() {
+        Thread.sleep(INSTALL_WINDOW_TIME)
+    }
+
+    suspend fun installDoor() {
+        Thread.sleep(INSTALL_DOOR_TIME)
+    }
+}
+
+fun main() {
+    val histories = runStructuredConcurrencyStep()
+
+    printHistory(histories)
+    println()
+    println("Returned map keys: " + histories.keys)
+}
+
+fun runStructuredConcurrencyStep(): Map<String, Map<String, List<HistoryItem>>> {
+    val tracker = Tracker()
+
+    runBlocking(
+        context = TrackingDispatcher(Dispatchers.Default, tracker) +
+                CoroutineName("Main")
+    ) {
+        val builder = CoroutineBuilder()
+        builder.buildHouseConcurrent("House 1")
+    }
+
+    return tracker.toMap()
+}
+
+class TrackingDispatcher(
+    private val delegate: CoroutineDispatcher,
+    private val tracker: Tracker
+) : CoroutineDispatcher() {
+    private val timeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss.SSS")
+    private val startedAt = System.currentTimeMillis()
+
+    override fun dispatch(
+        context: CoroutineContext,
+        block: Runnable
+    ) {
+        println(context, HistoryItemStatus.QUEUED, "Queued")
+
+        delegate.dispatch(context) {
+            println(context, HistoryItemStatus.RUNNING, "Running")
+
+            block.run()
+
+            println(context, HistoryItemStatus.FINISHED, "Yielded or finished")
+        }
+    }
+
+    private fun println(
+        context: CoroutineContext,
+        coroutineStatus: HistoryItemStatus,
+        state: String
+    ) {
+        val historyItem = HistoryItem(
+            time = LocalTime.now().format(timeFormatter),
+            occurredAtMillis = System.currentTimeMillis() - startedAt,
+            thread = Thread.currentThread().name,
+            coroutine = context[CoroutineName]?.name ?: "unnamed",
+            coroutineStatus = coroutineStatus,
+            state = state
+        )
+
+        tracker.track(historyItem)
+        kotlin.io.println(historyItem.format())
+    }
+}
+
+class Tracker {
+    private val coroutineHistory = linkedMapOf<String, RunnerHistory>()
+
+    @Synchronized
+    fun track(historyItem: HistoryItem) {
+        val coroutineRunnerHistory = coroutineHistory.getOrPut(historyItem.coroutine) {
+            RunnerHistory(
+                type = "Coroutine",
+                name = historyItem.coroutine,
+                markFinishedAsYieldingWhenNextEventComes = true
+            )
+        }
+
+        coroutineRunnerHistory.track(historyItem)
+    }
+
+    @Synchronized
+    fun toMap(): Map<String, Map<String, List<HistoryItem>>> =
+        mapOf(
+            "threadHistory" to threadHistory().toHistoryMap(),
+            "coroutineHistory" to coroutineHistory.values.toList().toHistoryMap()
+        )
+
+    private fun threadHistory(): List<RunnerHistory> {
+        val historiesByThread = linkedMapOf<String, RunnerHistory>()
+        val historyItems = coroutineHistory.values
+            .flatMap { runnerHistory ->
+                runnerHistory.items()
+            }
+            .sortedBy { historyItem ->
+                historyItem.occurredAtMillis
+            }
+
+        historyItems.forEach { historyItem ->
+            val runnerHistory = historiesByThread.getOrPut(historyItem.thread) {
+                RunnerHistory(
+                    type = "Thread",
+                    name = historyItem.thread,
+                    markFinishedAsYieldingWhenNextEventComes = false
+                )
+            }
+
+            runnerHistory.add(historyItem)
+        }
+
+        return historiesByThread.values.toList()
+    }
+
+    private fun List<RunnerHistory>.toHistoryMap(): Map<String, List<HistoryItem>> =
+        associate { runnerHistory ->
+            runnerHistory.name to runnerHistory.items()
+        }
+}
+
+fun printHistory(histories: Map<String, Map<String, List<HistoryItem>>>) {
+    printHistoryGroup(
+        title = "Tracked thread history",
+        type = "Thread",
+        history = histories["threadHistory"].orEmpty()
+    )
+
+    printHistoryGroup(
+        title = "Tracked coroutine history",
+        type = "Coroutine",
+        history = histories["coroutineHistory"].orEmpty()
+    )
+}
+
+fun printHistoryGroup(
+    title: String,
+    type: String,
+    history: Map<String, List<HistoryItem>>
+) {
+    kotlin.io.println()
+    kotlin.io.println(title)
+
+    history.forEach { (name, historyItems) ->
+        kotlin.io.println("$type: $name")
+        historyItems.forEach { historyItem ->
+            kotlin.io.println("  " + historyItem.format())
+        }
+    }
+}
+
+class RunnerHistory(
+    val type: String,
+    val name: String,
+    private val markFinishedAsYieldingWhenNextEventComes: Boolean
+) {
+    private val history = mutableListOf<HistoryItem>()
+
+    fun track(historyItem: HistoryItem) {
+        val previousItem = history.lastOrNull()
+
+        if (previousItem != null) {
+            val previousItemWithElapsedTime = previousItem.copy(
+                elapsedTime = historyItem.occurredAtMillis - previousItem.occurredAtMillis,
+                coroutineStatus = previousItem.nextEventStatus(),
+                state = previousItem.nextEventState()
+            )
+            history[history.lastIndex] = previousItemWithElapsedTime
+        }
+
+        history.add(historyItem)
+    }
+
+    fun add(historyItem: HistoryItem) {
+        history.add(historyItem)
+    }
+
+    fun items(): List<HistoryItem> = history.toList()
+
+    private fun HistoryItem.nextEventStatus(): HistoryItemStatus {
+        if (!markFinishedAsYieldingWhenNextEventComes) {
+            return coroutineStatus
+        }
+
+        return when (coroutineStatus) {
+            HistoryItemStatus.FINISHED -> HistoryItemStatus.YIELDING
+            else -> coroutineStatus
+        }
+    }
+
+    private fun HistoryItem.nextEventState(): String {
+        if (!markFinishedAsYieldingWhenNextEventComes) {
+            return state
+        }
+
+        return when (coroutineStatus) {
+            HistoryItemStatus.FINISHED -> "Yielding"
+            else -> state
+        }
+    }
+}
+
+data class HistoryItem(
+    val time: String,
+    val occurredAtMillis: Long,
+    val elapsedTime: Long? = null,
+    val thread: String,
+    val coroutine: String,
+    val coroutineStatus: HistoryItemStatus,
+    val state: String
+) {
+    fun format(): String {
+        val stepElapsedTime = "\${elapsedTime ?: 0}ms"
+
+        return "$time | $stepElapsedTime | $thread | $coroutine | $coroutineStatus | $state"
+    }
+}
+
+enum class HistoryItemStatus {
+    QUEUED,
+    RUNNING,
+    YIELDING,
+    FINISHED
+}`;
+}
+
 export function buildKotlinProgramCode(
   programId: string,
   config: BuilderProgramConfig = DEFAULT_BUILDER_PROGRAM_CONFIG,
@@ -674,10 +959,7 @@ export function buildKotlinProgramCodeParts(
   }
 
   if (programId === 'concurrent-coroutine-builder') {
-    return buildCodeParts(COROUTINE_COMMON_FUNCTIONS_CODE, [
-      buildCoroutineBuilderCode(config.timing),
-      COROUTINE_CONCURRENT_MAIN_CODE
-    ].join('\n\n'));
+    return buildCodeParts('', buildStructuredConcurrencyTrackingProgramCode(config.timing));
   }
 
   const fallbackProgram = KOTLIN_PROGRAMS.find((program) => program.id === programId) ?? KOTLIN_PROGRAMS[0];
@@ -742,6 +1024,6 @@ export const KOTLIN_PROGRAMS: KotlinProgram[] = [
     groupId: 'sequential-vs-concurrent-coroutine',
     label: 'Concurrent coroutine builder',
     description: 'Bob overlaps independent work with child coroutines inside coroutineScope.',
-    code: COROUTINE_CONCURRENT_PROGRAM_CODE
+    code: buildStructuredConcurrencyTrackingProgramCode()
   }
 ];
