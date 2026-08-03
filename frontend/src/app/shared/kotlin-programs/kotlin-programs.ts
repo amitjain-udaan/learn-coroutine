@@ -633,10 +633,7 @@ ${buildCoroutineBuilderCode()}
 
 ${COROUTINE_CONCURRENT_MAIN_CODE}`;
 
-export function buildStructuredConcurrencyTrackingProgramCode(
-  config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG
-): string {
-  return `import kotlinx.coroutines.CoroutineDispatcher
+export const STRUCTURED_CONCURRENCY_TRACKING_SUPPORT_CODE = `import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -646,77 +643,6 @@ import kotlinx.coroutines.runBlocking
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import kotlin.coroutines.CoroutineContext
-
-const val WEEK = ${config.weekMillis}L
-val WINDOW_ORDER_TIME = (${config.windowOrderWeeks} * WEEK).toLong()
-val DOOR_ORDER_TIME = (${config.doorOrderWeeks} * WEEK).toLong()
-val BRICK_TIME = (${config.brickWeeks} * WEEK).toLong()
-val INSTALL_WINDOW_TIME = (${config.installWindowWeeks} * WEEK).toLong()
-val INSTALL_DOOR_TIME = (${config.installDoorWeeks} * WEEK).toLong()
-
-class CoroutineBuilder {
-    suspend fun buildHouseConcurrent(houseName: String) = coroutineScope {
-        val orderWindowsJob = launch(CoroutineName("$houseName-order-windows")) {
-            orderWindows()
-        }
-
-        val orderDoorsJob = launch(CoroutineName("$houseName-order-doors")) {
-            orderDoors()
-        }
-
-        val layBrickJob = launch(CoroutineName("$houseName-lay-brick")) {
-            layBrick()
-        }
-
-        orderWindowsJob.join()
-        orderDoorsJob.join()
-        layBrickJob.join()
-        installDoor()
-        installWindow()
-    }
-
-    suspend fun orderWindows() {
-        delay(WINDOW_ORDER_TIME)
-    }
-
-    suspend fun orderDoors() {
-        delay(DOOR_ORDER_TIME)
-    }
-
-    suspend fun layBrick() {
-        Thread.sleep(BRICK_TIME)
-    }
-
-    suspend fun installWindow() {
-        Thread.sleep(INSTALL_WINDOW_TIME)
-    }
-
-    suspend fun installDoor() {
-        Thread.sleep(INSTALL_DOOR_TIME)
-    }
-}
-
-fun main() {
-    val histories = runStructuredConcurrencyStep()
-
-    printHistory(histories)
-    println()
-    println("Returned map keys: " + histories.keys)
-}
-
-fun runStructuredConcurrencyStep(): Map<String, Map<String, List<HistoryItem>>> {
-    val tracker = Tracker()
-
-    runBlocking(
-        context = TrackingDispatcher(Dispatchers.Default, tracker) +
-                CoroutineName("Main")
-    ) {
-        val builder = CoroutineBuilder()
-        builder.buildHouseConcurrent("House 1")
-    }
-
-    return tracker.toMap()
-}
 
 class TrackingDispatcher(
     private val delegate: CoroutineDispatcher,
@@ -916,6 +842,89 @@ enum class HistoryItemStatus {
     YIELDING,
     FINISHED
 }`;
+
+export function buildStructuredConcurrencyTrackingLessonCode(
+  config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG
+): string {
+  return `const val WEEK = ${config.weekMillis}L
+val WINDOW_ORDER_TIME = (${config.windowOrderWeeks} * WEEK).toLong()
+val DOOR_ORDER_TIME = (${config.doorOrderWeeks} * WEEK).toLong()
+val BRICK_TIME = (${config.brickWeeks} * WEEK).toLong()
+val INSTALL_WINDOW_TIME = (${config.installWindowWeeks} * WEEK).toLong()
+val INSTALL_DOOR_TIME = (${config.installDoorWeeks} * WEEK).toLong()
+
+class CoroutineBuilder {
+    suspend fun buildHouseConcurrent(houseName: String) = coroutineScope {
+        val orderWindowsJob = launch(CoroutineName("$houseName-order-windows")) {
+            orderWindows()
+        }
+
+        val orderDoorsJob = launch(CoroutineName("$houseName-order-doors")) {
+            orderDoors()
+        }
+
+        val layBrickJob = launch(CoroutineName("$houseName-lay-brick")) {
+            layBrick()
+        }
+
+        orderWindowsJob.join()
+        orderDoorsJob.join()
+        layBrickJob.join()
+        installDoor()
+        installWindow()
+    }
+
+    suspend fun orderWindows() {
+        delay(WINDOW_ORDER_TIME)
+    }
+
+    suspend fun orderDoors() {
+        delay(DOOR_ORDER_TIME)
+    }
+
+    suspend fun layBrick() {
+        Thread.sleep(BRICK_TIME)
+    }
+
+    suspend fun installWindow() {
+        Thread.sleep(INSTALL_WINDOW_TIME)
+    }
+
+    suspend fun installDoor() {
+        Thread.sleep(INSTALL_DOOR_TIME)
+    }
+}
+
+fun main() {
+    val histories = runStructuredConcurrencyStep()
+
+    printHistory(histories)
+    println()
+    println("Returned map keys: " + histories.keys)
+}
+
+fun runStructuredConcurrencyStep(): Map<String, Map<String, List<HistoryItem>>> {
+    val tracker = Tracker()
+
+    runBlocking(
+        context = TrackingDispatcher(Dispatchers.Default, tracker) +
+                CoroutineName("Main")
+    ) {
+        val builder = CoroutineBuilder()
+        builder.buildHouseConcurrent("House 1")
+    }
+
+    return tracker.toMap()
+}`;
+}
+
+export function buildStructuredConcurrencyTrackingProgramCode(
+  config: BuilderTimingConfig = DEFAULT_BUILDER_TIMING_CONFIG
+): string {
+  return [
+    STRUCTURED_CONCURRENCY_TRACKING_SUPPORT_CODE,
+    buildStructuredConcurrencyTrackingLessonCode(config)
+  ].join('\n\n');
 }
 
 export function buildKotlinProgramCode(
@@ -959,7 +968,10 @@ export function buildKotlinProgramCodeParts(
   }
 
   if (programId === 'concurrent-coroutine-builder') {
-    return buildCodeParts('', buildStructuredConcurrencyTrackingProgramCode(config.timing));
+    return buildCodeParts(
+      STRUCTURED_CONCURRENCY_TRACKING_SUPPORT_CODE,
+      buildStructuredConcurrencyTrackingLessonCode(config.timing)
+    );
   }
 
   const fallbackProgram = KOTLIN_PROGRAMS.find((program) => program.id === programId) ?? KOTLIN_PROGRAMS[0];

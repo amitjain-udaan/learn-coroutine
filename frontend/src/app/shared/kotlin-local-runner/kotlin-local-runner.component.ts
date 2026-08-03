@@ -993,6 +993,7 @@ export class KotlinLocalRunnerComponent implements OnChanges, OnDestroy {
       },
       options: {
         indexAxis: 'y',
+        animation: false,
         maintainAspectRatio: false,
         responsive: true,
         plugins: {
